@@ -20,16 +20,16 @@ PATH_BG = os.path.join("assets", "bg_vorteza.png")
 
 LANGUAGES = {
     "PL": {
-        "title": "VORTEZA STACK PRO V26", "fleet": "KONSOLA FLOTY", "unit": "JEDNOSTKA",
-        "offset": "OFFSET (cm)", "cargo": "WEJŚCIE ŁADUNKU", "sku_sel": "WYBÓR SKU",
-        "qty": "SZTUKI", "add": "DODAJ DO MANIFESTU", "purge": "WYCZYŚĆ DANE",
-        "manifest": "MANIFEST ZAŁADUNKOWY", "edit_m": "EDYCJA MANIFESTU", "cases": "OPAKOWANIA",
-        "pcs": "SZTUKI ŁĄCZNIE", "weight": "WAGA BRUTTO", "util": "UTYLIZACJA",
+        "title": "VORTEZA STACK | PLANER ZAŁADUNKU", "fleet": "KONSOLA FLOTY", "unit": "JEDNOSTKA",
+        "offset": "OFFSET (cm)", "cargo": "DODAJ ŁADUNEK", "sku_sel": "WYBÓR JEDNOSTKI",
+        "qty": "ILOŚĆ (SZT)", "add": "DODAJ DO MANIFESTU", "purge": "WYCZYŚĆ DANE",
+        "manifest": "MANIFEST ZAŁADUNKOWY", "edit_m": "EDYCJA MANIFESTU", "cases": "PALETY/SZTUKI",
+        "pcs": "SZTUKI ŁĄCZNIE", "weight": "WAGA BRUTTO", "util": "WYKORZYSTANIE ŁADOWNOŚCI",
         "ldm_occ": "LDM ZAJĘTE", "ldm_free": "LDM WOLNE", "vol": "OBJĘTOŚĆ",
-        "no_data": "STATUS: OCZEKIWANIE NA DANE", "inventory": "BAZA SKU", 
-        "save_db": "ZAPISZ BAZĘ SKU", "sync": "SYNCHRONIZACJA OK", "update": "AKTUALIZUJ MANIFEST",
-        "sku_ident": "IDENTYFIKATOR SKU", "mode_sel": "TRYB PRACY", 
-        "mode_3d": "🛰️ WIZUALIZACJA 3D", "mode_db": "📦 EDYTOR BAZY SKU",
+        "no_data": "STATUS: OCZEKIWANIE NA DANE ŁADUNKOWE", "inventory": "BAZA JEDNOSTEK LOGISTYCZNYCH", 
+        "save_db": "ZAPISZ BAZĘ", "sync": "SYNCHRONIZACJA OK", "update": "AKTUALIZUJ MANIFEST",
+        "sku_ident": "IDENTYFIKATOR", "mode_sel": "TRYB PRACY", 
+        "mode_3d": "🛰️ WIZUALIZACJA 3D", "mode_db": "📦 BAZA ŁADUNKÓW",
         "fleet_needed": "WYMAGANA FLOTA", "vehicle_num": "POJAZD #",
         "select_veh": "WYBIERZ POJAZD DO PODGLĄDU:"
     }
@@ -61,21 +61,10 @@ def inject_vorteza_stack_ui():
                 background-size: cover; background-attachment: fixed; 
             }}
             
-            /* NAPRAWA CZYTELNOŚCI - MIEDZIANE CZCIONKI DLA WIDGETÓW */
-            div[data-testid="stWidgetLabel"] p {{
-                color: #B58863 !important;
-                font-weight: 700 !important;
-                letter-spacing: 1px;
-            }}
-            div[data-testid="stRadio"] label p {{
-                color: #B58863 !important;
-                font-size: 1rem !important;
-            }}
-            .stSlider [data-testid="stWidgetLabel"] p {{
-                color: #B58863 !important;
-            }}
+            div[data-testid="stWidgetLabel"] p {{ color: #B58863 !important; font-weight: 700 !important; letter-spacing: 1px; }}
+            div[data-testid="stRadio"] label p {{ color: #B58863 !important; font-size: 1rem !important; }}
+            .stSlider [data-testid="stWidgetLabel"] p {{ color: #B58863 !important; }}
             
-            /* Kafelki KPI PRO */
             .v-kpi-card {{
                 background: rgba(10, 10, 10, 0.9); border: 1px solid rgba(181, 136, 99, 0.3);
                 border-top: 4px solid #B58863; padding: 12px; text-align: center; backdrop-filter: blur(10px);
@@ -217,9 +206,6 @@ def run_stack():
         st.divider()
 
         if app_mode == L['mode_3d']:
-            st.markdown(f"### 🛰️ KONFIGURACJA")
-            x_shift = st.slider(L['offset'], 0, 200, 0)
-            st.divider()
             st.markdown(f"### 📥 {L['cargo']}")
             sel_sku = st.selectbox(L['sku_sel'], [p['name'] for p in inventory], index=None)
             if sel_sku:
@@ -253,7 +239,7 @@ def run_stack():
                 safe_ipc = int(e.get('itemsPerCase', 1)) if e.get('itemsPerCase') else 1
                 for _ in range(math.ceil(e['p_act'] / safe_ipc)): full_cargo_list.append(e.copy())
             
-            planned_fleet = V26FleetOptimizer.solve_multi(full_cargo_list, x_shift)
+            planned_fleet = V26FleetOptimizer.solve_multi(full_cargo_list, 0)
             st.markdown(f"### 🚛 {L['fleet_needed']}: {len(planned_fleet)}")
             
             veh_idx = 0
@@ -262,7 +248,6 @@ def run_stack():
             
             active_veh = planned_fleet[veh_idx]
             
-            # --- ZAPISZ WYBRANY POJAZD DLA MODUŁU FLOW ---
             st.session_state.stack_selected_veh = active_veh['v_name']
             
             ldm_occ = (max([s['x'] + s['w'] for s in active_veh['stacks']]) / 100) if active_veh['stacks'] else 0
@@ -276,11 +261,11 @@ def run_stack():
             
             st.markdown(f"### 📋 {L['manifest']} - {active_veh['v_name']}")
             sku_counts = pd.Series([it['name'] for it in active_veh['packed_items']]).value_counts().reset_index()
-            sku_counts.columns = ['SKU', 'OPAKOWANIA']
-            html_table = f'<table class="v-table-pro"><tr><th>KOLOR</th><th>SKU</th><th>OPAKOWANIA</th></tr>'
+            sku_counts.columns = ['ŁADUNEK', 'ILOŚĆ']
+            html_table = f'<table class="v-table-pro"><tr><th>KOLOR</th><th>ŁADUNEK</th><th>ILOŚĆ</th></tr>'
             for _, row in sku_counts.iterrows():
-                clr = get_vorteza_sku_hex(row['SKU'])
-                html_table += f'<tr><td style="text-align:center;"><span style="color:{clr}; font-size:20px;">■</span></td><td>{row["SKU"]}</td><td>{row["OPAKOWANIA"]}</td></tr>'
+                clr = get_vorteza_sku_hex(row['ŁADUNEK'])
+                html_table += f'<tr><td style="text-align:center;"><span style="color:{clr}; font-size:20px;">■</span></td><td>{row["ŁADUNEK"]}</td><td>{row["ILOŚĆ"]}</td></tr>'
             st.markdown(html_table + '</table>', unsafe_allow_html=True)
         else: st.info(L['no_data'])
 
