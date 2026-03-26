@@ -21,6 +21,7 @@ if not os.path.exists(UPLOAD_DIR):
 
 SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
+@st.cache_data # <--- CACHOWANIE TŁA (Mega przyspieszenie)
 def load_vorteza_asset_b64(file_path):
     try:
         if os.path.exists(file_path):
@@ -28,6 +29,7 @@ def load_vorteza_asset_b64(file_path):
         return ""
     except: return ""
 
+@st.cache_data # <--- CACHOWANIE PLIKÓW JSON
 def load_local_json(path):
     try:
         with open(path, "r", encoding="utf-8") as f: return json.load(f)
@@ -41,6 +43,7 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
     return gspread.authorize(credentials)
 
+@st.cache_data(ttl=15) # <--- CACHOWANIE GOOGLE SHEETS (Odświeża co max 15 sekund)
 def load_orders():
     try:
         client = get_gspread_client()
@@ -54,6 +57,7 @@ def save_new_order(row_data):
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).worksheet("Zlecenia")
         sheet.append_row(row_data)
+        st.cache_data.clear() # <--- Czyści pamięć po dodaniu zlecenia
         return True
     except: return False
 
@@ -65,6 +69,7 @@ def update_order_status(order_id, new_status):
         for i, row in enumerate(records):
             if str(row.get('ID')) == str(order_id):
                 sheet.update_cell(i + 2, 2, new_status)
+                st.cache_data.clear() # <--- Czyści pamięć po zmianie
                 return True
         return False
     except: return False
@@ -77,10 +82,11 @@ def assign_transport(order_id, trakcja, przewoznik, auto_kierowca):
         for i, row in enumerate(records):
             if str(row.get('ID')) == str(order_id):
                 row_idx = i + 2
-                sheet.update_cell(row_idx, 2, "ZAPLANOWANE") # B
-                sheet.update_cell(row_idx, 9, str(trakcja))  # I
-                sheet.update_cell(row_idx, 10, str(przewoznik)) # J
-                sheet.update_cell(row_idx, 11, str(auto_kierowca)) # K
+                sheet.update_cell(row_idx, 2, "ZAPLANOWANE")
+                sheet.update_cell(row_idx, 9, str(trakcja))  
+                sheet.update_cell(row_idx, 10, str(przewoznik)) 
+                sheet.update_cell(row_idx, 11, str(auto_kierowca)) 
+                st.cache_data.clear() # <--- Czyści pamięć
                 return True
         return False
     except: return False
@@ -97,7 +103,8 @@ def update_order_billing(order_id, inv_num, inv_date, term_days, is_paid, file_n
                 sheet.update_cell(row_idx, 17, str(inv_date))  
                 sheet.update_cell(row_idx, 18, int(term_days)) 
                 sheet.update_cell(row_idx, 19, str(is_paid))
-                if file_name: sheet.update_cell(row_idx, 20, str(file_name)) # T: Zalacznik
+                if file_name: sheet.update_cell(row_idx, 20, str(file_name)) 
+                st.cache_data.clear() # <--- Czyści pamięć
                 return True
         return False
     except: return False
@@ -114,6 +121,7 @@ def update_full_order(order_id, klient, spedytor, start, koniec, data_z, data_r,
                 values = [str(klient), str(spedytor), str(start), str(koniec), str(data_z), str(data_r), str(trakcja), str(przewoznik), str(auto_kierowca), str(f_sprzedaz), str(f_kupno), str(ladunek_json), str(uwagi)]
                 for j, val in enumerate(values): cell_list[j].value = val
                 sheet.update_cells(cell_list)
+                st.cache_data.clear() # <--- Czyści pamięć
                 return True
         return False
     except: return False
@@ -237,7 +245,7 @@ def run_core():
                         if st.button("↩️ COFNIJ", key=f"cof3_{o_id}"): update_order_status(o_id, "ZAPLANOWANE"); st.rerun()
 
     # --------------------------------------------------------------------------
-    # WIDOK 2: SHIPPING LIST (NOWOŚĆ)
+    # WIDOK 2: SHIPPING LIST
     # --------------------------------------------------------------------------
     elif mode == "🗺️ SHIPPING LIST":
         st.markdown("### 🗺️ SHIPPING LIST (PLANOWANIE I DOŁADUNKI)")
@@ -247,7 +255,6 @@ def run_core():
         if df_acc.empty:
             st.success("Wszystkie zlecenia są już zaplanowane! Brak ładunków oczekujących.")
         else:
-            st.write("Wybierz zlecenia z listy (możesz łączyć bliskie kierunki), aby przypisać je do jednego pojazdu.")
             disp_df = df_acc[['ID', 'Start', 'Koniec', 'DataZal', 'DataRozl', 'Klient']].copy()
             st.dataframe(disp_df, use_container_width=True, hide_index=True)
             
@@ -259,7 +266,6 @@ def run_core():
                 for s_id in selected_ids:
                     row_data = df_acc[df_acc['ID'] == s_id].iloc[0]
                     try: 
-                        # TERAZ CZYTA POPRAWNIE KOLUMNĘ ŁADUNEK!
                         ladunek = json.loads(str(row_data.get('Ladunek', '[]')))
                         for item in ladunek:
                             qty = int(item['ILOSC'])
