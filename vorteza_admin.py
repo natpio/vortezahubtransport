@@ -38,7 +38,7 @@ def load_sheet_data(worksheet_name):
         return pd.DataFrame()
 
 # =========================================================
-# 2. INTERFEJS I STYLIZACJA (GOD MODE)
+# 2. INTERFEJS I STYLIZACJA (EXECUTIVE)
 # =========================================================
 def apply_admin_theme():
     bg_data = load_vorteza_asset_b64(PATH_BG)
@@ -54,13 +54,13 @@ def apply_admin_theme():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&family=JetBrains+Mono&display=swap');
         {bg_style}
-        h2, h3, h4 {{ color: #D4AF37 !important; text-transform: uppercase; letter-spacing: 3px !important; font-weight: 700 !important; }}
+        h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 3px !important; font-weight: 700 !important; }}
         .kpi-box {{
-            background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(212, 175, 55, 0.3);
-            border-top: 4px solid #D4AF37; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px;
+            background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(181, 136, 99, 0.3);
+            border-top: 4px solid #B58863; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px;
         }}
-        .kpi-title {{ color: #D4AF37; font-size: 0.8rem; letter-spacing: 2px; font-weight: bold; margin-bottom: 10px; }}
-        .kpi-value {{ color: #FFF; font-size: 2rem; font-family: 'JetBrains Mono', monospace; font-weight: bold; text-shadow: 0px 0px 10px rgba(212,175,55,0.4); }}
+        .kpi-title {{ color: #B58863; font-size: 0.8rem; letter-spacing: 2px; font-weight: bold; margin-bottom: 10px; }}
+        .kpi-value {{ color: #FFF; font-size: 2rem; font-family: 'JetBrains Mono', monospace; font-weight: bold; text-shadow: 0px 0px 10px rgba(181, 136, 99, 0.4); }}
         .kpi-sub {{ color: #AAA; font-size: 0.9rem; margin-top: 5px; }}
         .alert-value {{ color: #FF4B4B !important; text-shadow: 0px 0px 10px rgba(255,75,75,0.4); }}
         </style>
@@ -71,9 +71,9 @@ def apply_admin_theme():
 # =========================================================
 def run_admin():
     apply_admin_theme()
-    st.markdown("<h2>👑 GOD MODE | CENTRUM DOWODZENIA SZEFA</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>📈 VORTEZA EXECUTIVE | ANALITYKA BIZNESOWA</h2>", unsafe_allow_html=True)
 
-    with st.spinner("Pobieranie i mielenie danych z centrali..."):
+    with st.spinner("Pobieranie i analizowanie danych z centrali..."):
         df_zlecenia = load_sheet_data("Zlecenia")
         df_flota = load_sheet_data("Flota")
         df_przew = load_sheet_data("Przewoznicy")
@@ -114,7 +114,7 @@ def run_admin():
         st.markdown("### 🥇 WYNIKI SPEDYTORÓW (GENEROWANA MARŻA)")
         if not zlecenia_zakonczone.empty:
             df_sped = zlecenia_zakonczone.groupby('Spedytor')['Marza'].sum().reset_index().sort_values(by='Marza', ascending=False)
-            fig_sped = px.bar(df_sped, x='Spedytor', y='Marza', text='Marza', template="plotly_dark", color_discrete_sequence=['#D4AF37'])
+            fig_sped = px.bar(df_sped, x='Spedytor', y='Marza', text='Marza', template="plotly_dark", color_discrete_sequence=['#B58863'])
             fig_sped.update_traces(texttemplate='%{text:,.2f}', textposition='outside')
             fig_sped.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_sped, use_container_width=True)
@@ -138,7 +138,7 @@ def run_admin():
         st.markdown("### 🚚 RENTOWNOŚĆ TRAKCJI (WŁASNA VS OBCY)")
         if not zlecenia_zakonczone.empty:
             df_trakcja = zlecenia_zakonczone.groupby('Trakcja')['Marza'].sum().reset_index()
-            fig_trakcja = px.pie(df_trakcja, names='Trakcja', values='Marza', hole=0.4, template="plotly_dark", color_discrete_sequence=['#E67E22', '#8E44AD'])
+            fig_trakcja = px.pie(df_trakcja, names='Trakcja', values='Marza', hole=0.4, template="plotly_dark", color_discrete_sequence=['#B58863', '#3498DB'])
             fig_trakcja.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_trakcja, use_container_width=True)
 
