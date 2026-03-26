@@ -13,27 +13,21 @@ try:
     from vorteza_flow import run_flow
     from vorteza_base import run_base
     from vorteza_core import run_core
-    from vorteza_admin import run_admin  # <--- NOWY MODUŁ
+    from vorteza_admin import run_admin
 except ImportError as e:
-    st.error(f"KRYTYCZNY BŁĄD IMPORTU: Upewnij się, że pliki vorteza_stack.py, vorteza_flow.py, vorteza_base.py, vorteza_core.py i vorteza_admin.py znajdują się w folderze. Szczegóły: {e}")
+    st.error(f"KRYTYCZNY BŁĄD IMPORTU: Upewnij się, że wszystkie pliki modułów są w folderze. Szczegóły: {e}")
 
-# --- 2. KONFIGURACJA APEX ULTIMATE PLUS ---
-st.set_page_config(
-    page_title="VORTEZA TMS v25.0",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    page_icon="🕋"
-)
+# --- 2. KONFIGURACJA ---
+st.set_page_config(page_title="VORTEZA TMS v25.0", layout="wide", initial_sidebar_state="expanded", page_icon="🕋")
+SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
 def get_base64_of_bin_file(bin_file):
     try:
         if os.path.exists(bin_file):
-            with open(bin_file, 'rb') as f:
-                return base64.b64encode(f.read()).decode()
+            with open(bin_file, 'rb') as f: return base64.b64encode(f.read()).decode()
         return ""
     except: return ""
 
-# --- 3. DYNAMICZNY SILNIK STATYSTYK (LIVE DATA) ---
 def get_dashboard_stats():
     stats = {"vehicles": 0, "alerts": 0, "euro": 0.0, "skus": 0}
     try:
@@ -46,38 +40,53 @@ def get_dashboard_stats():
     except: pass
     return stats
 
-# --- 4. SILNIK WIZUALNY VORTEZA ---
+# --- 3. SILNIK AUTORYZACJI Z GOOGLE SHEETS (IAM) ---
+def authenticate_user(username, password):
+    # MASTER KEY - W razie awarii bazy Google, login MASTER + hasło z secrets.toml
+    if username.strip().upper() == "MASTER" and password == st.secrets.get("password", ""):
+        return "ADMINISTRATOR / SZEF"
+        
+    try:
+        creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
+        credentials = Credentials.from_service_account_info(creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        client = gspread.authorize(credentials)
+        sheet = client.open_by_key(SHEET_ID).worksheet("Uzytkownicy")
+        records = sheet.get_all_records()
+        
+        for row in records:
+            if str(row.get('Login', '')).strip().lower() == username.strip().lower():
+                if str(row.get('Haslo', '')).strip() == password.strip():
+                    status = str(row.get('Status', '')).strip().upper()
+                    if status == "AKTYWNY":
+                        return str(row.get('Rola', ''))
+                    else:
+                        return "BLOCKED"
+        return None
+    except Exception as e:
+        st.error(f"Błąd autoryzacji bazy: {e}")
+        return None
+
+# --- 4. SILNIK WIZUALNY ---
 def inject_hub_theme():
-    bg_path = os.path.join("assets", "tlo_hub_2.jpg")
-    bg_b64 = get_base64_of_bin_file(bg_path)
-    
-    bg_style = f"""
-    .stApp {{
-        background: linear-gradient(rgba(6, 6, 6, 0.85), rgba(6, 6, 6, 0.85)), 
-                    url("data:image/jpeg;base64,{bg_b64}") !important;
-        background-size: cover !important; background-attachment: fixed !important;
-    }}
-    """ if bg_b64 else ".stApp { background-color: var(--v-dark); }"
+    bg_b64 = get_base64_of_bin_file(os.path.join("assets", "tlo_hub_2.jpg"))
+    bg_style = f".stApp {{ background: linear-gradient(rgba(6, 6, 6, 0.85), rgba(6, 6, 6, 0.85)), url('data:image/jpeg;base64,{bg_b64}') !important; background-size: cover !important; background-attachment: fixed !important; }}" if bg_b64 else ".stApp { background-color: #060606; }"
 
     st.markdown(f"""
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&family=JetBrains+Mono&display=swap');
-            :root {{ --v-copper: #B58863; --v-dark: #060606; }}
             {bg_style}
             .stApp {{ color: #FFFFFF; font-family: 'Montserrat', sans-serif; }}
             section[data-testid="stSidebar"] {{ background-color: rgba(3, 3, 3, 0.95) !important; border-right: 1px solid rgba(181, 136, 99, 0.3); width: 350px !important; backdrop-filter: blur(10px); }}
-            .v-status-glow {{ color: #00FF41; text-shadow: 0 0 10px #00FF41; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }}
-            h1, h2, h3, h4 {{ color: var(--v-copper) !important; text-transform: uppercase; letter-spacing: 6px !important; font-weight: 700 !important; }}
-            .stButton>button {{ background-color: rgba(10,10,10,0.8) !important; color: var(--v-copper) !important; border: 1px solid var(--v-copper) !important; width: 100%; transition: 0.4s; }}
-            .stButton>button:hover {{ background-color: var(--v-copper) !important; color: black !important; }}
+            h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 6px !important; font-weight: 700 !important; }}
+            .stButton>button {{ background-color: rgba(10,10,10,0.8) !important; color: #B58863 !important; border: 1px solid #B58863 !important; width: 100%; transition: 0.4s; }}
+            .stButton>button:hover {{ background-color: #B58863 !important; color: black !important; }}
             .module-card {{ background: rgba(10, 10, 10, 0.75); border: 1px solid rgba(181, 136, 99, 0.4); border-top: 3px solid #B58863; padding: 20px; border-radius: 8px; text-align: center; backdrop-filter: blur(5px); margin-bottom: 15px; }}
-            [data-testid="stMetricLabel"] p {{ color: var(--v-copper) !important; font-weight: 700 !important; letter-spacing: 1px !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); }}
-            [data-testid="stMetricValue"] div {{ color: #FFFFFF !important; font-family: 'JetBrains Mono', monospace !important; text-shadow: 2px 2px 5px rgba(0,0,0,0.9); }}
+            [data-testid="stMetricLabel"] p {{ color: #B58863 !important; font-weight: 700 !important; letter-spacing: 1px !important; }}
+            [data-testid="stMetricValue"] div {{ color: #FFFFFF !important; font-family: 'JetBrains Mono', monospace !important; }}
         </style>
     """, unsafe_allow_html=True)
 
-def navigate_to(page_name):
-    st.session_state.active_module = page_name
+def navigate_to(page_name): st.session_state.active_module = page_name
 
 # --- 5. GŁÓWNA LOGIKA HUB-A ---
 def main_hub():
@@ -98,27 +107,26 @@ def main_hub():
             
             st.markdown("<h1 style='text-align:center;'>VORTEZA TMS LOGIN</h1>", unsafe_allow_html=True)
             with st.form("ApexAuth"):
-                user_input = st.text_input("NAZWA UŻYTKOWNIKA (IMIĘ)")
+                user_input = st.text_input("NAZWA UŻYTKOWNIKA (LOGIN)")
                 pwd_input = st.text_input("HASŁO DOSTĘPU", type="password")
                 
-                # <--- NOWOŚĆ: Dodana rola Administratora
-                role_input = st.selectbox("STANOWISKO", ["SPEDYTOR / LOGISTYKA", "KIEROWCA", "ADMINISTRATOR / SZEF"])
-                
-                if st.form_submit_button("VALIDATE ACCESS"):
-                    if pwd_input == st.secrets["password"]:
-                        st.session_state.global_auth = True
-                        st.session_state.username = user_input.upper() if user_input else "OPERATOR"
-                        st.session_state.role = role_input
+                if st.form_submit_button("ZALOGUJ DO SYSTEMU"):
+                    if user_input and pwd_input:
+                        role = authenticate_user(user_input, pwd_input)
                         
-                        # Przekierowanie zależne od roli
-                        if role_input == "KIEROWCA":
-                            st.session_state.active_module = "FLOTA (BASE)"
-                        elif role_input == "ADMINISTRATOR / SZEF":
-                            st.session_state.active_module = "RAPORTY (ADMIN)"
-                        else:
-                            st.session_state.active_module = "PULPIT (DASHBOARD)"
-                        st.rerun()
-                    else: st.error("ACCESS DENIED: INVALID KEY")
+                        if role == "BLOCKED":
+                            st.error("KONTO ZABLOKOWANE. Skontaktuj się z administratorem.")
+                        elif role:
+                            st.session_state.global_auth = True
+                            st.session_state.username = user_input.upper()
+                            st.session_state.role = role
+                            
+                            if role == "KIEROWCA": st.session_state.active_module = "FLOTA (BASE)"
+                            elif role == "ADMINISTRATOR / SZEF": st.session_state.active_module = "RAPORTY (ADMIN)"
+                            else: st.session_state.active_module = "PULPIT (DASHBOARD)"
+                            st.rerun()
+                        else: st.error("ACCESS DENIED: Nieprawidłowy login lub hasło!")
+                    else: st.warning("Wpisz login i hasło.")
         return
 
     # --- UKRYCIE SIDEBARU NA PULPICIE GŁÓWNYM ---
@@ -130,7 +138,7 @@ def main_hub():
             if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
             else: st.markdown("<h2 style='letter-spacing:10px; text-align:center;'>VORTEZA</h2>", unsafe_allow_html=True)
                 
-            st.markdown("<div style='text-align:center;'><span class='v-status-glow'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align:center;'><span style='color: #00FF41; font-family: JetBrains Mono; font-size: 0.8rem;'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
             st.divider()
             
             # --- NAWIGACJA ZALEŻNA OD ROLI ---
@@ -140,8 +148,7 @@ def main_hub():
             else:
                 c1, c2 = st.columns([1, 4])
                 with c1:
-                    icon_path_home = os.path.join("assets", "home.jpg")
-                    if os.path.exists(icon_path_home): st.image(icon_path_home)
+                    if os.path.exists(os.path.join("assets", "home.jpg")): st.image(os.path.join("assets", "home.jpg"))
                 with c2: st.button("PULPIT (DASHBOARD)", key="sb_nav_dash", on_click=navigate_to, args=("PULPIT (DASHBOARD)",), use_container_width=True)
                 st.markdown("<br>", unsafe_allow_html=True)
                 
@@ -151,27 +158,23 @@ def main_hub():
                 
                 c1, c2 = st.columns([1, 4])
                 with c1:
-                    icon_path_stack = os.path.join("assets", "icon_stack.png")
-                    if os.path.exists(icon_path_stack): st.image(icon_path_stack)
+                    if os.path.exists(os.path.join("assets", "icon_stack.png")): st.image(os.path.join("assets", "icon_stack.png"))
                 with c2: st.button("PLANER 3D (STACK)", key="sb_nav_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
                 
                 c1, c2 = st.columns([1, 4])
                 with c1:
-                    icon_path_flow = os.path.join("assets", "icon_flow.png")
-                    if os.path.exists(icon_path_flow): st.image(icon_path_flow)
+                    if os.path.exists(os.path.join("assets", "icon_flow.png")): st.image(os.path.join("assets", "icon_flow.png"))
                 with c2: st.button("FINANSE (FLOW)", key="sb_nav_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
                 
                 c1, c2 = st.columns([1, 4])
                 with c1:
-                    icon_path_base = os.path.join("assets", "icon_base.png")
-                    if os.path.exists(icon_path_base): st.image(icon_path_base)
+                    if os.path.exists(os.path.join("assets", "icon_base.png")): st.image(os.path.join("assets", "icon_base.png"))
                 with c2: st.button("FLOTA (BASE)", key="sb_nav_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
 
-                # <--- NOWOŚĆ: Sekcja widoczna tylko dla Szefa
                 if st.session_state.role == "ADMINISTRATOR / SZEF":
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown("<h3 style='font-size:0.8rem;'>👑 GOD MODE</h3>", unsafe_allow_html=True)
-                    st.button("📊 RAPORTY I ANALITYKA", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
+                    st.button("📊 RAPORTY I KADRY", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
 
             st.divider()
             st.markdown(f"**UŻYTKOWNIK:** {st.session_state.username}")
@@ -221,11 +224,7 @@ def main_hub():
     elif st.session_state.active_module == "PLANER 3D (STACK)" and st.session_state.role != "KIEROWCA": run_stack()
     elif st.session_state.active_module == "FINANSE (FLOW)" and st.session_state.role != "KIEROWCA": run_flow()
     elif st.session_state.active_module == "FLOTA (BASE)": run_base()
-    
-    # <--- NOWOŚĆ: Ładowanie modułu admina
-    elif st.session_state.active_module == "RAPORTY (ADMIN)" and st.session_state.role == "ADMINISTRATOR / SZEF":
-        try: run_admin()
-        except Exception as e: st.warning(f"Moduł raportów w budowie. Za chwilę go dodamy! ({e})")
+    elif st.session_state.active_module == "RAPORTY (ADMIN)" and st.session_state.role == "ADMINISTRATOR / SZEF": run_admin()
 
 if __name__ == "__main__":
     main_hub()
