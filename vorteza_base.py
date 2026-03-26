@@ -249,15 +249,61 @@ def run_base():
 
     elif mode == "🚚 MOJE TRASY (ZADANIA)":
         st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
-        st.info("Podaj numer rejestracyjny swojego pojazdu, aby pobrać przypisane zlecenia z systemu.")
+        st.info("Podaj numer rejestracyjny swojego pojazdu, aby pobrać przypisane zlecenia z centrali.")
         
-        pojazd_kierowcy = st.text_input("POJAZD (REJESTRACJA)", value=st.session_state.get("last_plate", "")).upper()
+        pojazd_kierowcy = st.text_input("TWÓJ POJAZD (REJESTRACJA)", value=st.session_state.get("last_plate", "")).upper()
         
         if pojazd_kierowcy:
             st.session_state.last_plate = pojazd_kierowcy
             st.markdown("---")
-            # TU W KROKU 12 PODEPNIEMY ZACIĄGANIE Z SHIPPING LISTY
-            st.warning(f"Moduł w trakcie integracji z centralą. Oczekiwanie na dane z Shipping Listy dla pojazdu: **{pojazd_kierowcy}**...")
+            
+            # Zaciąganie danych z bazy Zleceń (Shipping List)
+            with st.spinner("Synchronizacja z serwerem logistycznym..."):
+                df_zlecenia = load_sheet_data("Zlecenia")
+            
+            if df_zlecenia.empty:
+                st.error("Błąd połączenia z bazą zleceń.")
+            else:
+                # Filtrowanie po rejestracji (ignorujemy wielkość liter) i statusie
+                df_kierowcy = df_zlecenia[
+                    (df_zlecenia['Pojazd_Kierowca'].astype(str).str.upper() == pojazd_kierowcy) & 
+                    (df_zlecenia['Status'].isin(['ZAPLANOWANE', 'W TRASIE']))
+                ]
+                
+                if df_kierowcy.empty:
+                    st.success(f"Brak aktywnych zleceń w systemie dla pojazdu: {pojazd_kierowcy}. Odpoczywaj!")
+                else:
+                    st.markdown(f"**Odnaleziono zlecenia dla {pojazd_kierowcy}:**")
+                    for _, row in df_kierowcy.iterrows():
+                        o_id = row.get('ID', 'N/A')
+                        
+                        # Formatyzowanie ładunku z JSON do czytelnej listy
+                        ladunek_str = ""
+                        try:
+                            lad_list = json.loads(row.get('Ladunek', '[]'))
+                            ladunek_str = " | ".join([f"{item['ILOSC']}x {item['SKU']}" for item in lad_list])
+                        except: ladunek_str = "Brak szczegółów ładunku."
+                        
+                        # Kolory kart w zależności od statusu
+                        card_border = "#F1C40F" if row.get('Status') == 'ZAPLANOWANE' else "#E67E22"
+                        
+                        st.markdown(f"""
+                            <div style="background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 5px solid {card_border}; padding: 15px; margin-bottom: 15px; border-radius: 6px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                                    <span style="color:#B58863; font-weight:bold; font-size:1.1rem;">ZLECENIE: {o_id}</span>
+                                    <span style="color:{card_border}; font-weight:bold; font-family:'JetBrains Mono';">STATUS: {row.get('Status')}</span>
+                                </div>
+                                <div style="color:#FFFFFF; font-size:1.2rem; font-weight:bold; margin-bottom: 10px;">
+                                    📍 {row.get('Start', '-')} ➔ 🏁 {row.get('Koniec', '-')}
+                                </div>
+                                <div style="color:#AAAAAA; font-size:0.9rem; line-height:1.6;">
+                                    <b>Klient (Miejsce Rozładunku):</b> {row.get('Klient', '-')}<br>
+                                    <b>Data Załadunku:</b> {row.get('DataZal', '-')} | <b>Data Rozładunku:</b> {row.get('DataRozl', '-')}<br>
+                                    <b>Ładunek do podjęcia:</b> <span style="color:#FFF;">{ladunek_str}</span><br>
+                                    <b>Uwagi od Spedytora:</b> <span style="color:#FF4B4B;">{row.get('Uwagi', 'Brak uwag')}</span>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     run_base()
