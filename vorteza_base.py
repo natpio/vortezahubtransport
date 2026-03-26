@@ -12,9 +12,8 @@ from google.oauth2.service_account import Credentials
 # 1. KONFIGURACJA ŚCIEŻEK I ZASOBÓW
 # =========================================================
 PATH_CHECKLIST = os.path.join("data", "lista_kontrolna.json")
-PATH_BG = os.path.join("assets", "bg_vorteza.png")
-PATH_LOGO = os.path.join("assets", "logo_vorteza.png")
-SHEET_ID = "1JV-vXpwAbvvboQd7eijashVmS3kkOqTf_LJrbrsWSxo"
+PATH_BG = os.path.join("assets", "tlo_hub_2.jpg")
+SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
 def load_vorteza_asset_b64(file_path):
     try:
@@ -25,7 +24,6 @@ def load_vorteza_asset_b64(file_path):
     except: return ""
 
 def load_checklist_local():
-    """Wczytuje listę kontrolną z lokalnego folderu data/."""
     if os.path.exists(PATH_CHECKLIST):
         with open(PATH_CHECKLIST, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -35,27 +33,38 @@ def load_checklist_local():
 # 2. SILNIK GOOGLE SHEETS
 # =========================================================
 def get_gspread_client():
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
     credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
     return gspread.authorize(credentials)
 
-def load_from_google_sheets():
+def load_sheet_data(worksheet_name):
     try:
         client = get_gspread_client()
-        sheet = client.open_by_key(SHEET_ID).sheet1
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
+        sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
+        return pd.DataFrame(sheet.get_all_records())
     except Exception as e:
-        st.error(f"Błąd połączenia z bazą danych: {e}")
+        st.error(f"Błąd połączenia z bazą ({worksheet_name}): {e}")
         return pd.DataFrame()
 
-def save_to_google_sheets(row_data):
+def save_to_sheet(worksheet_name, row_data):
     try:
         client = get_gspread_client()
-        sheet = client.open_by_key(SHEET_ID).sheet1
+        sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
         sheet.append_row(row_data)
         return True
+    except: return False
+
+def update_carrier_status(nip, new_status):
+    try:
+        client = get_gspread_client()
+        sheet = client.open_by_key(SHEET_ID).worksheet("Przewoznicy")
+        records = sheet.get_all_records()
+        for i, row in enumerate(records):
+            if str(row.get('NIP')) == str(nip):
+                sheet.update_cell(i + 2, 8, new_status) # Kolumna H (8) to Status
+                return True
+        return False
     except: return False
 
 # =========================================================
@@ -65,89 +74,177 @@ def apply_base_theme():
     bg_data = load_vorteza_asset_b64(PATH_BG)
     bg_style = f"""
         .stApp {{
-            background: linear-gradient(rgba(0,0,0,0.92), rgba(0,0,0,0.92)), 
-                        url("data:image/png;base64,{bg_data}") !important;
+            background: linear-gradient(rgba(6, 6, 6, 0.90), rgba(6, 6, 6, 0.90)), 
+                        url("data:image/jpeg;base64,{bg_data}") !important;
             background-size: cover !important;
             background-attachment: fixed !important;
         }}
-    """ if bg_data else ".stApp { background-color: #050505 !important; }"
+    """ if bg_data else ".stApp { background-color: #060606 !important; }"
 
     st.markdown(f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Montserrat:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&family=JetBrains+Mono&display=swap');
         {bg_style}
-        .vorteza-header {{ font-family: 'Michroma', sans-serif !important; color: #B58863 !important; text-align: center; letter-spacing: 4px; padding: 20px; text-transform: uppercase; }}
-        .log-entry {{ background-color: rgba(12, 12, 12, 0.95) !important; border-left: 8px solid #B58863 !important; padding: 20px; margin-bottom: 15px; border-radius: 4px; }}
-        .log-entry-alert {{ border-left: 8px solid #FF4B4B !important; }}
+        h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 4px !important; font-weight: 700 !important; }}
+        .log-entry {{ background-color: rgba(15, 15, 15, 0.85) !important; border: 1px solid rgba(181, 136, 99, 0.3); border-left: 5px solid #B58863 !important; padding: 15px; margin-bottom: 15px; border-radius: 4px; }}
+        .log-entry-alert {{ border-left: 5px solid #FF4B4B !important; }}
+        .carrier-card {{ background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 4px solid #2980B9; padding: 15px; margin-bottom: 15px; border-radius: 6px; }}
+        .carrier-active {{ border-left-color: #27AE60 !important; }}
+        .carrier-blocked {{ border-left-color: #FF4B4B !important; opacity: 0.7; }}
+        div[data-testid="stButton"] button {{ border-color: #B58863 !important; color: #B58863 !important; background: transparent !important; }}
+        div[data-testid="stButton"] button:hover {{ background: #B58863 !important; color: #000 !important; }}
         </style>
     """, unsafe_allow_html=True)
 
 # =========================================================
-# 4. GŁÓWNA FUNKCJA MODUŁU (DLA HUB)
+# 4. GŁÓWNA FUNKCJA MODUŁU
 # =========================================================
 def run_base():
     apply_base_theme()
-    
-    # Ustalenie użytkownika z sesji Hub-a
     current_user = st.session_state.get("username", "OPERATOR")
-    is_dispatcher = any(x in current_user.lower() for x in ["dyspozytor", "admin"])
     
-    st.markdown("<h2 class='vorteza-header'>VORTEZA BASE | LOGISTICS CONTROL</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>VORTEZA BASE | FLOTA I KONTRAHENCI</h2>", unsafe_allow_html=True)
 
-    if is_dispatcher:
-        # --- WIDOK DYSPOZYTORA (MONITORING) ---
-        df = load_from_google_sheets()
-        if not df.empty:
-            st.subheader("Ostatnie Raporty Floty")
-            for idx, row in df.iloc[::-1].iterrows(): # Od najnowszych
-                is_alert = "ALERT" in str(row.get('Wynik Kontroli', ''))
+    with st.sidebar:
+        st.markdown("### 🎛️ PANEL STEROWANIA")
+        mode = st.radio("WYBIERZ MODUŁ:", [
+            "🤝 BAZA PRZEWOŹNIKÓW", 
+            "🚛 RAPORTY FLOTY (WŁASNEJ)", 
+            "📋 KARTA DROGOWA (INSPEKCJA)"
+        ], label_visibility="collapsed")
+        st.divider()
+
+    # ---------------------------------------------------------
+    # WIDOK 1: BAZA PRZEWOŹNIKÓW (SPEDYCJA)
+    # ---------------------------------------------------------
+    if mode == "🤝 BAZA PRZEWOŹNIKÓW":
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            st.markdown("### 📇 REJESTR PODWYKONAWCÓW")
+        with c2:
+            with st.expander("➕ DODAJ NOWEGO PRZEWOŹNIKA"):
+                with st.form("new_carrier_form", clear_on_submit=True):
+                    nip = st.text_input("NIP")
+                    nazwa = st.text_input("NAZWA FIRMY")
+                    kontakt = st.text_input("OSOBA KONTAKTOWA (DYSPOZYTOR)")
+                    tel = st.text_input("TELEFON")
+                    email = st.text_input("E-MAIL")
+                    ocp = st.date_input("OCP WAŻNE DO")
+                    uwagi = st.text_area("UWAGI (np. kierunki, tabor)")
+                    if st.form_submit_button("ZAPISZ W BAZIE"):
+                        if nip and nazwa:
+                            if save_to_sheet("Przewoznicy", [nip, nazwa, kontakt, tel, email, str(ocp), uwagi, "AKTYWNY"]):
+                                st.success("Przewoźnik dodany do bazy!"); st.rerun()
+                            else: st.error("Błąd zapisu!")
+                        else: st.error("Wypełnij przynajmniej NIP i Nazwę!")
+
+        df_c = load_sheet_data("Przewoznicy")
+        if df_c.empty:
+            st.info("Baza przewoźników jest pusta.")
+        else:
+            search_query = st.text_input("🔍 Wyszukaj przewoźnika (Nazwa lub NIP)...")
+            if search_query:
+                df_c = df_c[df_c['Nazwa'].astype(str).str.contains(search_query, case=False) | df_c['NIP'].astype(str).str.contains(search_query, case=False)]
+            
+            for _, row in df_c.iterrows():
+                nip_val = str(row.get('NIP', ''))
+                status = str(row.get('Status', 'AKTYWNY'))
+                ocp_str = str(row.get('OCP_Wazne_Do', ''))
+                
+                # Sprawdzanie ważności OCP
+                ocp_alert = ""
+                try:
+                    if ocp_str:
+                        ocp_date = datetime.strptime(ocp_str, "%Y-%m-%d").date()
+                        if ocp_date < datetime.now().date():
+                            ocp_alert = "<span style='color:#FF4B4B; font-weight:bold;'> ⚠️ OCP NIEWAŻNE!</span>"
+                            status = "ZABLOKOWANY" # Automatyczna blokada wizualna
+                except: pass
+
+                card_class = "carrier-card carrier-active" if status == "AKTYWNY" else "carrier-card carrier-blocked"
+                
+                st.markdown(f"""
+                <div class="{card_class}">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#FFFFFF; font-size:1.1rem; font-weight:bold;">{row.get('Nazwa', '-')} (NIP: {nip_val})</span>
+                        <span style="font-family:'JetBrains Mono'; font-size:0.9rem;">STATUS: {status}</span>
+                    </div>
+                    <div style="color:#AAAAAA; font-size:0.9rem; margin-top:8px; line-height:1.4;">
+                        <b>Dyspozytor:</b> {row.get('Kontakt', '-')} | <b>Tel:</b> {row.get('Telefon', '-')} | <b>E-mail:</b> {row.get('Email', '-')}<br>
+                        <b>Ważność OCP:</b> {ocp_str} {ocp_alert}<br>
+                        <b>Uwagi:</b> {row.get('Uwagi', '-')}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Przyciski zarządzania statusem
+                if status == "AKTYWNY":
+                    if st.button("🚫 ZABLOKUJ (BRAK OCP/PROBLEMY)", key=f"blk_{nip_val}"):
+                        update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
+                else:
+                    if st.button("✅ ODBLOKUJ", key=f"unb_{nip_val}"):
+                        update_carrier_status(nip_val, "AKTYWNY"); st.rerun()
+
+    # ---------------------------------------------------------
+    # WIDOK 2: RAPORTY FLOTY (MONITORING)
+    # ---------------------------------------------------------
+    elif mode == "🚛 RAPORTY FLOTY (WŁASNEJ)":
+        st.markdown("### 📋 DZIENNIK KONTROLI TABORU")
+        df_f = load_sheet_data("Flota")
+        if df_f.empty:
+            st.info("Brak aktywnych logów dla własnej floty.")
+        else:
+            for idx, row in df_f.iloc[::-1].iterrows(): # Od najnowszych
+                is_alert = "ALERT" in str(row.get('Status', ''))
                 entry_class = "log-entry log-entry-alert" if is_alert else "log-entry"
                 
                 st.markdown(f"""
                 <div class="{entry_class}">
-                    <b style="color:#B58863; font-size:1.2rem;">{row.get('Numer Rejestracyjny', 'N/A')}</b> | 
-                    Data: {row.get('Data i Godzina', 'N/A')} | OP: {row.get('Operator ID', 'N/A')}<br>
-                    <span style="color:{'#FF4B4B' if is_alert else '#00FF41'}">STATUS: {row.get('Wynik Kontroli', 'NOMINAL')}</span><br>
-                    <small>Przebieg: {row.get('Przebieg (km)', 0)} km | Uwagi: {row.get('Uwagi i Obserwacje', '-')}</small>
+                    <b style="color:#B58863; font-size:1.1rem;">POJAZD: {row.get('Pojazd', 'N/A')}</b> | 
+                    Data: {row.get('Data', 'N/A')} | OP: {row.get('Operator', 'N/A')}<br>
+                    <span style="color:{'#FF4B4B' if is_alert else '#00FF41'}">STATUS INSPEKCJI: {row.get('Status', 'NOMINAL')}</span><br>
+                    <span style="color:#AAA; font-size:0.85rem;">Przebieg: {row.get('Przebieg', 0)} km | Uwagi: {row.get('Uwagi', '-')}</span>
                 </div>
                 """, unsafe_allow_html=True)
-        else:
-            st.info("Brak aktywnych logów w bazie Google Sheets.")
 
-    else:
-        # --- WIDOK KIEROWCY (PROTOKÓŁ) ---
+    # ---------------------------------------------------------
+    # WIDOK 3: KARTA DROGOWA (WYPEŁNIA KIEROWCA)
+    # ---------------------------------------------------------
+    elif mode == "📋 KARTA DROGOWA (INSPEKCJA)":
+        st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU")
         data_gh = load_checklist_local()
         
         with st.form("driver_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                r_plate = st.text_input("NUMER REJESTRACYJNY").upper()
+                r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU").upper()
             with col2:
                 k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", step=1)
             
             check_results = {}
             if data_gh and "lista_kontrolna" in data_gh:
+                st.markdown("---")
                 for kat, punkty in data_gh["lista_kontrolna"].items():
                     with st.expander(kat.upper()):
                         for pt in punkty:
                             res = st.checkbox(pt, key=f"f_{pt}")
                             check_results[pt] = "OK" if res else "BRAK"
             
-            u_notes = st.text_area("DODATKOWE UWAGI / OBSERWACJE")
+            u_notes = st.text_area("DODATKOWE UWAGI / WYKRYTE USTERKI")
             
-            if st.form_submit_button("WYŚLIJ PROTOKÓŁ DO SYSTEMU"):
+            if st.form_submit_button("WYŚLIJ RAPORT DO BAZY", use_container_width=True):
                 if not r_plate:
-                    st.error("Błąd: Numer rejestracyjny jest wymagany!")
+                    st.error("Numer rejestracyjny jest wymagany!")
                 else:
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
                     errs = [pt for pt, v in check_results.items() if v == "BRAK"]
                     status = "NOMINAL" if not errs else f"ALERT: {', '.join(errs)}"
                     
-                    if save_to_google_sheets([ts, current_user, r_plate, k_odo, status, u_notes]):
-                        st.success("Protokół został pomyślnie wysłany do bazy.")
+                    if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, u_notes]):
+                        st.success("Raport zapisany poprawnie.")
                         st.balloons()
                     else:
-                        st.error("Błąd zapisu w Google Sheets. Sprawdź połączenie.")
+                        st.error("Błąd zapisu w Google Sheets.")
 
 if __name__ == "__main__":
     run_base()
