@@ -115,6 +115,13 @@ def apply_base_theme():
         div[data-testid="stButton"] button {{ border-color: #B58863 !important; color: #B58863 !important; background: transparent !important; }}
         div[data-testid="stButton"] button:hover {{ background: #B58863 !important; color: #000 !important; }}
         .btn-action div[data-testid="stButton"] button {{ background: rgba(181, 136, 99, 0.2) !important; border: 1px solid #B58863 !important; }}
+        
+        /* ------------------------------------------------------------------- */
+        /* STYLIZACJA KIEROWCY - CHECKBOXY I RADIA NA MIEDZIANO                */
+        /* ------------------------------------------------------------------- */
+        div[data-testid="stRadio"] label p {{ color: #B58863 !important; font-weight: bold !important; font-size: 0.95rem !important; letter-spacing: 0.5px; }}
+        div[data-testid="stCheckbox"] label p {{ color: #B58863 !important; font-size: 0.95rem !important; font-weight: bold !important; }}
+        div[data-testid="stWidgetLabel"] p {{ color: #B58863 !important; font-weight: bold !important; letter-spacing: 1px; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -226,34 +233,91 @@ def run_base():
     # WIDOKI DLA KIEROWCY
     # =========================================================
     elif mode == "📋 KARTA DROGOWA (INSPEKCJA)":
-        st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU")
+        st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU (WYMOGI BEZPIECZEŃSTWA)")
         data_gh = load_checklist_local()
         
-        with st.form("driver_form", clear_on_submit=True):
+        # Formularz z wyłączonym automatycznym czyszczeniem (żeby w razie błędu kierowca nie musiał klikać od nowa)
+        with st.form("driver_form", clear_on_submit=False):
             col1, col2 = st.columns(2)
             with col1: r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
-            with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", step=1)
+            with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", min_value=0, step=1)
+            
+            st.info("Zaznacz stan każdego elementu poniżej. System nie pozwoli na wysłanie raportu, jeśli pominiesz jakikolwiek punkt.")
             
             check_results = {}
             if data_gh and "lista_kontrolna" in data_gh:
                 st.markdown("---")
                 for kat, punkty in data_gh["lista_kontrolna"].items():
-                    with st.expander(kat.upper()):
-                        for pt in punkty:
-                            res = st.checkbox(pt, key=f"f_{pt}")
-                            check_results[pt] = "OK" if res else "BRAK"
+                    st.markdown(f"<h4 style='color:#B58863; font-size:1.1rem; margin-top:20px; border-bottom: 1px solid #B58863; padding-bottom:5px;'>{kat.upper()}</h4>", unsafe_allow_html=True)
+                    for pt in punkty:
+                        # Wymuszona 3-stopniowa skala (brak domyślnego wyboru)
+                        check_results[pt] = st.radio(
+                            pt, 
+                            ["✅ OK", "⚠️ UWAGA (Drobna usterka)", "🛑 KRYTYCZNE (Uziemienie)"], 
+                            index=None, 
+                            horizontal=True, 
+                            key=f"f_{pt}"
+                        )
             
-            u_notes = st.text_area("DODATKOWE UWAGI / WYKRYTE USTERKI")
+            st.markdown("---")
+            st.markdown("#### 📸 DOKUMENTACJA USTEREK")
+            u_notes = st.text_area("Jeśli w którymś punkcie zaznaczyłeś 'UWAGA' lub 'KRYTYCZNE', krótko opisz problem poniżej:")
+            uploaded_files = st.file_uploader("Wgraj zdjęcia usterek (Aparat w telefonie / Galeria)", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
             
-            if st.form_submit_button("WYŚLIJ RAPORT DO BAZY", use_container_width=True):
-                if not r_plate: st.error("Numer rejestracyjny jest wymagany!")
+            st.markdown("---")
+            # Twarda deklaracja zniechęcająca do oszustw
+            deklaracja = st.checkbox("Oświadczam, że dokonałem fizycznych oględzin pojazdu. Mam świadomość odpowiedzialności za przekazanie nieprawdziwych danych.")
+            
+            submitted = st.form_submit_button("🚀 ZATWIERDŹ I WYŚLIJ RAPORT", use_container_width=True)
+            
+            if submitted:
+                # Walidacja formularza
+                brakujace_punkty = [pt for pt, val in check_results.items() if val is None]
+                
+                if not r_plate:
+                    st.error("Wpisz numer rejestracyjny pojazdu!")
+                elif k_odo <= 0:
+                    st.error("Podaj prawidłowy, aktualny przebieg w kilometrach!")
+                elif len(brakujace_punkty) > 0:
+                    st.error(f"Nie sprawdziłeś {len(brakujace_punkty)} punktów! Wróć do listy wyżej i zaznacz brakujące opcje (na czerwono).")
+                elif not deklaracja:
+                    st.error("Musisz zaznaczyć oświadczenie o dokonaniu oględzin na samym dole formularza!")
                 else:
+                    # Przetwarzanie i zapis, gdy wszystko jest poprawne
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-                    errs = [pt for pt, v in check_results.items() if v == "BRAK"]
-                    status = "NOMINAL" if not errs else f"ALERT: {', '.join(errs)}"
-                    if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, u_notes]):
-                        st.success("Raport zapisany poprawnie."); st.balloons()
-                    else: st.error("Błąd zapisu w Google Sheets.")
+                    
+                    saved_files = []
+                    if uploaded_files:
+                        for uf in uploaded_files:
+                            fname = f"INSP_{r_plate}_{datetime.now().strftime('%H%M%S')}_{uf.name}"
+                            with open(os.path.join(UPLOAD_DIR, fname), "wb") as f:
+                                f.write(uf.getbuffer())
+                            saved_files.append(fname)
+
+                    # Analiza statusu na podstawie kliknięć kierowcy
+                    krytyczne = [pt for pt, val in check_results.items() if "KRYTYCZNE" in val]
+                    uwagi = [pt for pt, val in check_results.items() if "UWAGA" in val]
+
+                    if krytyczne:
+                        status = "ALERT: KRYTYCZNY"
+                    elif uwagi:
+                        status = "UWAGA: WYMAGA PRZEGLĄDU"
+                    else:
+                        status = "NOMINAL (OK)"
+
+                    # Formowanie notatki z uwagami i zdjęciami
+                    final_notes = u_notes
+                    if saved_files:
+                        final_notes += f" | ZDJĘCIA: {', '.join(saved_files)}"
+
+                    if krytyczne or uwagi:
+                        final_notes = f"Zgłoszono: {len(krytyczne)} kryt., {len(uwagi)} uwag. " + final_notes
+
+                    if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, final_notes]):
+                        st.success(f"Raport wysłany pomyślnie! Wykryty status pojazdu: {status}")
+                        st.balloons()
+                    else:
+                        st.error("Błąd zapisu w Google Sheets.")
 
     elif mode == "🚚 MOJE TRASY (ZADANIA)":
         st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
