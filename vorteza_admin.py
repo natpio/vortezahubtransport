@@ -57,7 +57,6 @@ def update_user_status(login, new_status):
         return False
     except: return False
 
-# --- NOWA FUNKCJA: USUWANIE UŻYTKOWNIKA ---
 def delete_user(login):
     try:
         client = get_gspread_client()
@@ -65,7 +64,6 @@ def delete_user(login):
         records = sheet.get_all_records()
         for i, row in enumerate(records):
             if str(row.get('Login')) == str(login):
-                # Usunięcie wiersza (dodajemy 2, bo index od 0, a 1 to nagłówki)
                 sheet.delete_rows(i + 2) 
                 return True
         return False
@@ -225,7 +223,6 @@ def run_admin():
             
             if st.form_submit_button("➕ UTWÓRZ KONTO", use_container_width=True):
                 if new_login and new_haslo:
-                    # Sprawdzenie czy użytkownik już istnieje
                     df_check = load_sheet_data("Uzytkownicy")
                     if not df_check.empty and new_login.lower() in df_check['Login'].astype(str).str.lower().values:
                         st.error("Użytkownik o takim loginie już istnieje!")
@@ -263,10 +260,10 @@ def run_admin():
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Przyciski akcji
-                col_btn_blk, col_btn_del, _ = st.columns([1, 1, 3])
+                # --- ZMIANA UKŁADU PRZYCISKÓW ---
+                # Używamy proporcji 2:5:2, co daje szeroki środek, spychając "Usuń" do prawej
+                col_btn_blk, _, col_btn_del = st.columns([2, 5, 2])
                 
-                # Przycisk BLOKUJ / ODBLOKUJ
                 with col_btn_blk:
                     if status == "AKTYWNY":
                         if login.lower() != "piotr" and login.lower() != current_user.lower():
@@ -276,7 +273,6 @@ def run_admin():
                         if st.button("✅ ODBLOKUJ", key=f"unb_{login}", use_container_width=True):
                             update_user_status(login, "AKTYWNY"); st.rerun()
                 
-                # Przycisk USUŃ
                 with col_btn_del:
                     if login.lower() != "piotr" and login.lower() != current_user.lower():
                         st.markdown("<div class='btn-delete'>", unsafe_allow_html=True)
