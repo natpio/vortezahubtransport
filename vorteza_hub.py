@@ -42,7 +42,6 @@ def get_dashboard_stats():
 
 # --- 3. SILNIK AUTORYZACJI Z GOOGLE SHEETS (IAM) ---
 def authenticate_user(username, password):
-    # MASTER KEY - W razie awarii bazy Google, login MASTER + hasło z secrets.toml
     if username.strip().upper() == "MASTER" and password == st.secrets.get("password", ""):
         return "ADMINISTRATOR / SZEF"
         
@@ -173,7 +172,6 @@ def main_hub():
 
                 if st.session_state.role == "ADMINISTRATOR / SZEF":
                     st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown("<h3 style='font-size:0.8rem;'>👑 GOD MODE</h3>", unsafe_allow_html=True)
                     st.button("📊 RAPORTY I KADRY", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
 
             st.divider()
