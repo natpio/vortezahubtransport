@@ -44,7 +44,6 @@ def load_sheet_data(worksheet_name):
         sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
         return pd.DataFrame(sheet.get_all_records())
     except Exception as e:
-        st.error(f"Błąd połączenia z bazą ({worksheet_name}): {e}")
         return pd.DataFrame()
 
 def save_to_sheet(worksheet_name, row_data):
@@ -62,7 +61,7 @@ def update_carrier_status(nip, new_status):
         records = sheet.get_all_records()
         for i, row in enumerate(records):
             if str(row.get('NIP')) == str(nip):
-                sheet.update_cell(i + 2, 8, new_status) # Kolumna H (8) to Status
+                sheet.update_cell(i + 2, 8, new_status)
                 return True
         return False
     except: return False
@@ -76,8 +75,7 @@ def apply_base_theme():
         .stApp {{
             background: linear-gradient(rgba(6, 6, 6, 0.90), rgba(6, 6, 6, 0.90)), 
                         url("data:image/jpeg;base64,{bg_data}") !important;
-            background-size: cover !important;
-            background-attachment: fixed !important;
+            background-size: cover !important; background-attachment: fixed !important;
         }}
     """ if bg_data else ".stApp { background-color: #060606 !important; }"
 
@@ -102,21 +100,29 @@ def apply_base_theme():
 def run_base():
     apply_base_theme()
     current_user = st.session_state.get("username", "OPERATOR")
+    current_role = st.session_state.get("role", "BRAK")
     
-    st.markdown("<h2>VORTEZA BASE | FLOTA I KONTRAHENCI</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>VORTEZA BASE | KONSOLA FLOTY</h2>", unsafe_allow_html=True)
 
+    # --- DYNAMICZNY SIDEBAR ZALEŻNY OD ROLI ---
     with st.sidebar:
         st.markdown("### 🎛️ PANEL STEROWANIA")
-        mode = st.radio("WYBIERZ MODUŁ:", [
-            "🤝 BAZA PRZEWOŹNIKÓW", 
-            "🚛 RAPORTY FLOTY (WŁASNEJ)", 
-            "📋 KARTA DROGOWA (INSPEKCJA)"
-        ], label_visibility="collapsed")
+        
+        if current_role == "KIEROWCA":
+            mode = st.radio("WYBIERZ MODUŁ:", [
+                "📋 KARTA DROGOWA (INSPEKCJA)",
+                "🚚 MOJE TRASY (ZADANIA)"
+            ], label_visibility="collapsed")
+        else:
+            mode = st.radio("WYBIERZ MODUŁ:", [
+                "🤝 BAZA PRZEWOŹNIKÓW", 
+                "🚛 RAPORTY FLOTY (WŁASNEJ)"
+            ], label_visibility="collapsed")
         st.divider()
 
-    # ---------------------------------------------------------
-    # WIDOK 1: BAZA PRZEWOŹNIKÓW (SPEDYCJA)
-    # ---------------------------------------------------------
+    # =========================================================
+    # WIDOKI DLA LOGISTYKA / SPEDYTORA
+    # =========================================================
     if mode == "🤝 BAZA PRZEWOŹNIKÓW":
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -151,14 +157,13 @@ def run_base():
                 status = str(row.get('Status', 'AKTYWNY'))
                 ocp_str = str(row.get('OCP_Wazne_Do', ''))
                 
-                # Sprawdzanie ważności OCP
                 ocp_alert = ""
                 try:
                     if ocp_str:
                         ocp_date = datetime.strptime(ocp_str, "%Y-%m-%d").date()
                         if ocp_date < datetime.now().date():
                             ocp_alert = "<span style='color:#FF4B4B; font-weight:bold;'> ⚠️ OCP NIEWAŻNE!</span>"
-                            status = "ZABLOKOWANY" # Automatyczna blokada wizualna
+                            status = "ZABLOKOWANY" 
                 except: pass
 
                 card_class = "carrier-card carrier-active" if status == "AKTYWNY" else "carrier-card carrier-blocked"
@@ -177,7 +182,6 @@ def run_base():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Przyciski zarządzania statusem
                 if status == "AKTYWNY":
                     if st.button("🚫 ZABLOKUJ (BRAK OCP/PROBLEMY)", key=f"blk_{nip_val}"):
                         update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
@@ -185,16 +189,13 @@ def run_base():
                     if st.button("✅ ODBLOKUJ", key=f"unb_{nip_val}"):
                         update_carrier_status(nip_val, "AKTYWNY"); st.rerun()
 
-    # ---------------------------------------------------------
-    # WIDOK 2: RAPORTY FLOTY (MONITORING)
-    # ---------------------------------------------------------
     elif mode == "🚛 RAPORTY FLOTY (WŁASNEJ)":
         st.markdown("### 📋 DZIENNIK KONTROLI TABORU")
         df_f = load_sheet_data("Flota")
         if df_f.empty:
             st.info("Brak aktywnych logów dla własnej floty.")
         else:
-            for idx, row in df_f.iloc[::-1].iterrows(): # Od najnowszych
+            for idx, row in df_f.iloc[::-1].iterrows(): 
                 is_alert = "ALERT" in str(row.get('Status', ''))
                 entry_class = "log-entry log-entry-alert" if is_alert else "log-entry"
                 
@@ -207,9 +208,9 @@ def run_base():
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # WIDOK 3: KARTA DROGOWA (WYPEŁNIA KIEROWCA)
-    # ---------------------------------------------------------
+    # =========================================================
+    # WIDOKI DLA KIEROWCY
+    # =========================================================
     elif mode == "📋 KARTA DROGOWA (INSPEKCJA)":
         st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU")
         data_gh = load_checklist_local()
@@ -217,7 +218,7 @@ def run_base():
         with st.form("driver_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU").upper()
+                r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
             with col2:
                 k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", step=1)
             
@@ -245,6 +246,18 @@ def run_base():
                         st.balloons()
                     else:
                         st.error("Błąd zapisu w Google Sheets.")
+
+    elif mode == "🚚 MOJE TRASY (ZADANIA)":
+        st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
+        st.info("Podaj numer rejestracyjny swojego pojazdu, aby pobrać przypisane zlecenia z systemu.")
+        
+        pojazd_kierowcy = st.text_input("POJAZD (REJESTRACJA)", value=st.session_state.get("last_plate", "")).upper()
+        
+        if pojazd_kierowcy:
+            st.session_state.last_plate = pojazd_kierowcy
+            st.markdown("---")
+            # TU W KROKU 12 PODEPNIEMY ZACIĄGANIE Z SHIPPING LISTY
+            st.warning(f"Moduł w trakcie integracji z centralą. Oczekiwanie na dane z Shipping Listy dla pojazdu: **{pojazd_kierowcy}**...")
 
 if __name__ == "__main__":
     run_base()
