@@ -13,8 +13,9 @@ try:
     from vorteza_flow import run_flow
     from vorteza_base import run_base
     from vorteza_core import run_core
+    from vorteza_admin import run_admin  # <--- NOWY MODUŁ
 except ImportError as e:
-    st.error(f"KRYTYCZNY BŁĄD IMPORTU: Upewnij się, że pliki vorteza_stack.py, vorteza_flow.py, vorteza_base.py i vorteza_core.py znajdują się w folderze. Szczegóły: {e}")
+    st.error(f"KRYTYCZNY BŁĄD IMPORTU: Upewnij się, że pliki vorteza_stack.py, vorteza_flow.py, vorteza_base.py, vorteza_core.py i vorteza_admin.py znajdują się w folderze. Szczegóły: {e}")
 
 # --- 2. KONFIGURACJA APEX ULTIMATE PLUS ---
 st.set_page_config(
@@ -99,10 +100,11 @@ def main_hub():
             with st.form("ApexAuth"):
                 user_input = st.text_input("NAZWA UŻYTKOWNIKA (IMIĘ)")
                 pwd_input = st.text_input("HASŁO DOSTĘPU", type="password")
-                role_input = st.selectbox("STANOWISKO", ["SPEDYTOR / LOGISTYKA", "KIEROWCA"])
+                
+                # <--- NOWOŚĆ: Dodana rola Administratora
+                role_input = st.selectbox("STANOWISKO", ["SPEDYTOR / LOGISTYKA", "KIEROWCA", "ADMINISTRATOR / SZEF"])
                 
                 if st.form_submit_button("VALIDATE ACCESS"):
-                    # W docelowej wersji możesz tu podpiąć logikę weryfikacji po użytkownikach
                     if pwd_input == st.secrets["password"]:
                         st.session_state.global_auth = True
                         st.session_state.username = user_input.upper() if user_input else "OPERATOR"
@@ -111,6 +113,8 @@ def main_hub():
                         # Przekierowanie zależne od roli
                         if role_input == "KIEROWCA":
                             st.session_state.active_module = "FLOTA (BASE)"
+                        elif role_input == "ADMINISTRATOR / SZEF":
+                            st.session_state.active_module = "RAPORTY (ADMIN)"
                         else:
                             st.session_state.active_module = "PULPIT (DASHBOARD)"
                         st.rerun()
@@ -163,6 +167,12 @@ def main_hub():
                     if os.path.exists(icon_path_base): st.image(icon_path_base)
                 with c2: st.button("FLOTA (BASE)", key="sb_nav_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
 
+                # <--- NOWOŚĆ: Sekcja widoczna tylko dla Szefa
+                if st.session_state.role == "ADMINISTRATOR / SZEF":
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("<h3 style='font-size:0.8rem;'>👑 GOD MODE</h3>", unsafe_allow_html=True)
+                    st.button("📊 RAPORTY I ANALITYKA", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
+
             st.divider()
             st.markdown(f"**UŻYTKOWNIK:** {st.session_state.username}")
             st.markdown(f"**ROLA:** {st.session_state.role}")
@@ -211,6 +221,11 @@ def main_hub():
     elif st.session_state.active_module == "PLANER 3D (STACK)" and st.session_state.role != "KIEROWCA": run_stack()
     elif st.session_state.active_module == "FINANSE (FLOW)" and st.session_state.role != "KIEROWCA": run_flow()
     elif st.session_state.active_module == "FLOTA (BASE)": run_base()
+    
+    # <--- NOWOŚĆ: Ładowanie modułu admina
+    elif st.session_state.active_module == "RAPORTY (ADMIN)" and st.session_state.role == "ADMINISTRATOR / SZEF":
+        try: run_admin()
+        except Exception as e: st.warning(f"Moduł raportów w budowie. Za chwilę go dodamy! ({e})")
 
 if __name__ == "__main__":
     main_hub()
