@@ -14,6 +14,11 @@ from google.oauth2.service_account import Credentials
 PATH_CHECKLIST = os.path.join("data", "lista_kontrolna.json")
 PATH_BG = os.path.join("assets", "tlo_hub_2.jpg")
 SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
+UPLOAD_DIR = os.path.join("data", "uploads")
+
+# Upewniamy się, że folder na skany CMR istnieje
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 def load_vorteza_asset_b64(file_path):
     try:
@@ -66,6 +71,24 @@ def update_carrier_status(nip, new_status):
         return False
     except: return False
 
+# --- NOWA FUNKCJA: INTERAKCJA KIEROWCY ZE ZLECENIEM ---
+def update_driver_order(order_id, new_status, file_name=""):
+    try:
+        client = get_gspread_client()
+        sheet = client.open_by_key(SHEET_ID).worksheet("Zlecenia")
+        records = sheet.get_all_records()
+        for i, row in enumerate(records):
+            if str(row.get('ID')) == str(order_id):
+                row_idx = i + 2
+                sheet.update_cell(row_idx, 2, new_status) # Kolumna B: Status
+                if file_name:
+                    sheet.update_cell(row_idx, 20, str(file_name)) # Kolumna T: Zalacznik (CMR)
+                return True
+        return False
+    except Exception as e:
+        st.error(f"Błąd aktualizacji bazy: {e}")
+        return False
+
 # =========================================================
 # 3. INTERFEJS I STYLIZACJA
 # =========================================================
@@ -91,6 +114,7 @@ def apply_base_theme():
         .carrier-blocked {{ border-left-color: #FF4B4B !important; opacity: 0.7; }}
         div[data-testid="stButton"] button {{ border-color: #B58863 !important; color: #B58863 !important; background: transparent !important; }}
         div[data-testid="stButton"] button:hover {{ background: #B58863 !important; color: #000 !important; }}
+        .btn-action div[data-testid="stButton"] button {{ background: rgba(181, 136, 99, 0.2) !important; border: 1px solid #B58863 !important; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -104,7 +128,6 @@ def run_base():
     
     st.markdown("<h2>VORTEZA BASE | KONSOLA FLOTY</h2>", unsafe_allow_html=True)
 
-    # --- DYNAMICZNY SIDEBAR ZALEŻNY OD ROLI ---
     with st.sidebar:
         st.markdown("### 🎛️ PANEL STEROWANIA")
         
@@ -125,8 +148,7 @@ def run_base():
     # =========================================================
     if mode == "🤝 BAZA PRZEWOŹNIKÓW":
         c1, c2 = st.columns([2, 1])
-        with c1:
-            st.markdown("### 📇 REJESTR PODWYKONAWCÓW")
+        with c1: st.markdown("### 📇 REJESTR PODWYKONAWCÓW")
         with c2:
             with st.expander("➕ DODAJ NOWEGO PRZEWOŹNIKA"):
                 with st.form("new_carrier_form", clear_on_submit=True):
@@ -145,18 +167,15 @@ def run_base():
                         else: st.error("Wypełnij przynajmniej NIP i Nazwę!")
 
         df_c = load_sheet_data("Przewoznicy")
-        if df_c.empty:
-            st.info("Baza przewoźników jest pusta.")
+        if df_c.empty: st.info("Baza przewoźników jest pusta.")
         else:
             search_query = st.text_input("🔍 Wyszukaj przewoźnika (Nazwa lub NIP)...")
-            if search_query:
-                df_c = df_c[df_c['Nazwa'].astype(str).str.contains(search_query, case=False) | df_c['NIP'].astype(str).str.contains(search_query, case=False)]
+            if search_query: df_c = df_c[df_c['Nazwa'].astype(str).str.contains(search_query, case=False) | df_c['NIP'].astype(str).str.contains(search_query, case=False)]
             
             for _, row in df_c.iterrows():
                 nip_val = str(row.get('NIP', ''))
                 status = str(row.get('Status', 'AKTYWNY'))
                 ocp_str = str(row.get('OCP_Wazne_Do', ''))
-                
                 ocp_alert = ""
                 try:
                     if ocp_str:
@@ -183,26 +202,21 @@ def run_base():
                 """, unsafe_allow_html=True)
                 
                 if status == "AKTYWNY":
-                    if st.button("🚫 ZABLOKUJ (BRAK OCP/PROBLEMY)", key=f"blk_{nip_val}"):
-                        update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
+                    if st.button("🚫 ZABLOKUJ (BRAK OCP)", key=f"blk_{nip_val}"): update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
                 else:
-                    if st.button("✅ ODBLOKUJ", key=f"unb_{nip_val}"):
-                        update_carrier_status(nip_val, "AKTYWNY"); st.rerun()
+                    if st.button("✅ ODBLOKUJ", key=f"unb_{nip_val}"): update_carrier_status(nip_val, "AKTYWNY"); st.rerun()
 
     elif mode == "🚛 RAPORTY FLOTY (WŁASNEJ)":
         st.markdown("### 📋 DZIENNIK KONTROLI TABORU")
         df_f = load_sheet_data("Flota")
-        if df_f.empty:
-            st.info("Brak aktywnych logów dla własnej floty.")
+        if df_f.empty: st.info("Brak aktywnych logów dla własnej floty.")
         else:
             for idx, row in df_f.iloc[::-1].iterrows(): 
                 is_alert = "ALERT" in str(row.get('Status', ''))
                 entry_class = "log-entry log-entry-alert" if is_alert else "log-entry"
-                
                 st.markdown(f"""
                 <div class="{entry_class}">
-                    <b style="color:#B58863; font-size:1.1rem;">POJAZD: {row.get('Pojazd', 'N/A')}</b> | 
-                    Data: {row.get('Data', 'N/A')} | OP: {row.get('Operator', 'N/A')}<br>
+                    <b style="color:#B58863; font-size:1.1rem;">POJAZD: {row.get('Pojazd', 'N/A')}</b> | Data: {row.get('Data', 'N/A')} | OP: {row.get('Operator', 'N/A')}<br>
                     <span style="color:{'#FF4B4B' if is_alert else '#00FF41'}">STATUS INSPEKCJI: {row.get('Status', 'NOMINAL')}</span><br>
                     <span style="color:#AAA; font-size:0.85rem;">Przebieg: {row.get('Przebieg', 0)} km | Uwagi: {row.get('Uwagi', '-')}</span>
                 </div>
@@ -217,10 +231,8 @@ def run_base():
         
         with st.form("driver_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
-            with col1:
-                r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
-            with col2:
-                k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", step=1)
+            with col1: r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
+            with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", step=1)
             
             check_results = {}
             if data_gh and "lista_kontrolna" in data_gh:
@@ -234,18 +246,14 @@ def run_base():
             u_notes = st.text_area("DODATKOWE UWAGI / WYKRYTE USTERKI")
             
             if st.form_submit_button("WYŚLIJ RAPORT DO BAZY", use_container_width=True):
-                if not r_plate:
-                    st.error("Numer rejestracyjny jest wymagany!")
+                if not r_plate: st.error("Numer rejestracyjny jest wymagany!")
                 else:
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
                     errs = [pt for pt, v in check_results.items() if v == "BRAK"]
                     status = "NOMINAL" if not errs else f"ALERT: {', '.join(errs)}"
-                    
                     if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, u_notes]):
-                        st.success("Raport zapisany poprawnie.")
-                        st.balloons()
-                    else:
-                        st.error("Błąd zapisu w Google Sheets.")
+                        st.success("Raport zapisany poprawnie."); st.balloons()
+                    else: st.error("Błąd zapisu w Google Sheets.")
 
     elif mode == "🚚 MOJE TRASY (ZADANIA)":
         st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
@@ -257,14 +265,12 @@ def run_base():
             st.session_state.last_plate = pojazd_kierowcy
             st.markdown("---")
             
-            # Zaciąganie danych z bazy Zleceń (Shipping List)
             with st.spinner("Synchronizacja z serwerem logistycznym..."):
                 df_zlecenia = load_sheet_data("Zlecenia")
             
             if df_zlecenia.empty:
                 st.error("Błąd połączenia z bazą zleceń.")
             else:
-                # Filtrowanie po rejestracji (ignorujemy wielkość liter) i statusie
                 df_kierowcy = df_zlecenia[
                     (df_zlecenia['Pojazd_Kierowca'].astype(str).str.upper() == pojazd_kierowcy) & 
                     (df_zlecenia['Status'].isin(['ZAPLANOWANE', 'W TRASIE']))
@@ -276,34 +282,60 @@ def run_base():
                     st.markdown(f"**Odnaleziono zlecenia dla {pojazd_kierowcy}:**")
                     for _, row in df_kierowcy.iterrows():
                         o_id = row.get('ID', 'N/A')
+                        status = row.get('Status')
                         
-                        # Formatyzowanie ładunku z JSON do czytelnej listy
                         ladunek_str = ""
                         try:
-                            lad_list = json.loads(row.get('Ladunek', '[]'))
+                            lad_list = json.loads(str(row.get('Ladunek', '[]')))
                             ladunek_str = " | ".join([f"{item['ILOSC']}x {item['SKU']}" for item in lad_list])
                         except: ladunek_str = "Brak szczegółów ładunku."
                         
-                        # Kolory kart w zależności od statusu
-                        card_border = "#F1C40F" if row.get('Status') == 'ZAPLANOWANE' else "#E67E22"
+                        card_border = "#F1C40F" if status == 'ZAPLANOWANE' else "#E67E22"
                         
                         st.markdown(f"""
-                            <div style="background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 5px solid {card_border}; padding: 15px; margin-bottom: 15px; border-radius: 6px;">
+                            <div style="background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 5px solid {card_border}; padding: 15px; margin-bottom: 10px; border-radius: 6px;">
                                 <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
                                     <span style="color:#B58863; font-weight:bold; font-size:1.1rem;">ZLECENIE: {o_id}</span>
-                                    <span style="color:{card_border}; font-weight:bold; font-family:'JetBrains Mono';">STATUS: {row.get('Status')}</span>
+                                    <span style="color:{card_border}; font-weight:bold; font-family:'JetBrains Mono';">STATUS: {status}</span>
                                 </div>
                                 <div style="color:#FFFFFF; font-size:1.2rem; font-weight:bold; margin-bottom: 10px;">
                                     📍 {row.get('Start', '-')} ➔ 🏁 {row.get('Koniec', '-')}
                                 </div>
                                 <div style="color:#AAAAAA; font-size:0.9rem; line-height:1.6;">
-                                    <b>Klient (Miejsce Rozładunku):</b> {row.get('Klient', '-')}<br>
-                                    <b>Data Załadunku:</b> {row.get('DataZal', '-')} | <b>Data Rozładunku:</b> {row.get('DataRozl', '-')}<br>
-                                    <b>Ładunek do podjęcia:</b> <span style="color:#FFF;">{ladunek_str}</span><br>
-                                    <b>Uwagi od Spedytora:</b> <span style="color:#FF4B4B;">{row.get('Uwagi', 'Brak uwag')}</span>
+                                    <b>Klient (Rozładunek):</b> {row.get('Klient', '-')}<br>
+                                    <b>Daty:</b> {row.get('DataZal', '-')} do {row.get('DataRozl', '-')}<br>
+                                    <b>Ładunek:</b> <span style="color:#FFF;">{ladunek_str}</span><br>
+                                    <b>Uwagi:</b> <span style="color:#FF4B4B;">{row.get('Uwagi', 'Brak')}</span>
                                 </div>
                             </div>
                         """, unsafe_allow_html=True)
+                        
+                        # --- INTERAKCJA KIEROWCY ---
+                        st.markdown("<div class='btn-action'>", unsafe_allow_html=True)
+                        
+                        if status == 'ZAPLANOWANE':
+                            if st.button(f"▶️ ROZPOCZNIJ TRASĘ (START)", key=f"start_{o_id}", use_container_width=True):
+                                if update_driver_order(o_id, "W TRASIE"):
+                                    st.success("Status zaktualizowany! Trasa rozpoczęta."); st.rerun()
+                                else: st.error("Błąd połączenia.")
+                                
+                        elif status == 'W TRASIE':
+                            with st.form(f"end_form_{o_id}"):
+                                st.info("Gdy dotrzesz na miejsce i rozładujesz towar, wgraj zdjęcie dokumentu i zakończ trasę.")
+                                cmr_file = st.file_uploader("Wgraj zdjęcie CMR (Opcjonalnie)", type=["pdf", "jpg", "png", "jpeg"], key=f"cmr_{o_id}")
+                                
+                                if st.form_submit_button("🏁 ZGŁOŚ ROZŁADUNEK (KONIEC)", use_container_width=True):
+                                    saved_filename = ""
+                                    if cmr_file is not None:
+                                        saved_filename = f"CMR_{o_id}_{cmr_file.name}"
+                                        with open(os.path.join(UPLOAD_DIR, saved_filename), "wb") as f:
+                                            f.write(cmr_file.getbuffer())
+                                            
+                                    if update_driver_order(o_id, "ZAKOŃCZONE", saved_filename):
+                                        st.success("Rozładunek zgłoszony! Zlecenie zakończone."); st.rerun()
+                                    else: st.error("Błąd połączenia.")
+                                    
+                        st.markdown("</div><br>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     run_base()
