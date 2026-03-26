@@ -27,7 +27,7 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
     return gspread.authorize(credentials)
 
-@st.cache_data(ttl=60) # Cache na 60 sekund
+@st.cache_data(ttl=60)
 def load_sheet_data(worksheet_name):
     try:
         client = get_gspread_client()
@@ -52,7 +52,7 @@ def update_user_status(login, new_status):
         records = sheet.get_all_records()
         for i, row in enumerate(records):
             if str(row.get('Login')) == str(login):
-                sheet.update_cell(i + 2, 4, new_status) # Kolumna D (4) to Status
+                sheet.update_cell(i + 2, 4, new_status)
                 return True
         return False
     except: return False
@@ -100,11 +100,11 @@ def apply_admin_theme():
         .user-card {{ background: rgba(30, 30, 30, 0.9); border: 1px solid #444; border-left: 4px solid #2980B9; padding: 15px; margin-bottom: 10px; border-radius: 6px; }}
         .user-blocked {{ border-left-color: #FF4B4B !important; opacity: 0.6; }}
         
-        /* Przyciski usuwania */
-        .btn-delete div[data-testid="stButton"] button {{
+        /* Wymuszenie czerwonego koloru WYŁĄCZNIE dla przycisku w 3. kolumnie (czyli USUŃ) */
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) div[data-testid="stButton"] button {{
             border-color: #FF4B4B !important; color: #FF4B4B !important; background: transparent !important;
         }}
-        .btn-delete div[data-testid="stButton"] button:hover {{
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) div[data-testid="stButton"] button:hover {{
             background: #FF4B4B !important; color: #FFF !important;
         }}
         </style>
@@ -260,8 +260,6 @@ def run_admin():
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # --- ZMIANA UKŁADU PRZYCISKÓW ---
-                # Używamy proporcji 2:5:2, co daje szeroki środek, spychając "Usuń" do prawej
                 col_btn_blk, _, col_btn_del = st.columns([2, 5, 2])
                 
                 with col_btn_blk:
@@ -275,13 +273,11 @@ def run_admin():
                 
                 with col_btn_del:
                     if login.lower() != "piotr" and login.lower() != current_user.lower():
-                        st.markdown("<div class='btn-delete'>", unsafe_allow_html=True)
                         if st.button("🗑️ USUŃ", key=f"del_{login}", use_container_width=True):
                             if delete_user(login):
                                 st.success("Konto usunięte!"); st.rerun()
                             else:
                                 st.error("Błąd usuwania.")
-                        st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     run_admin()
