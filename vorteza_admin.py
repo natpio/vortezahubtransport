@@ -27,6 +27,7 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
     return gspread.authorize(credentials)
 
+@st.cache_data(ttl=60) # Cache na 60 sekund
 def load_sheet_data(worksheet_name):
     try:
         client = get_gspread_client()
@@ -56,6 +57,22 @@ def update_user_status(login, new_status):
         return False
     except: return False
 
+# --- NOWA FUNKCJA: USUWANIE UŻYTKOWNIKA ---
+def delete_user(login):
+    try:
+        client = get_gspread_client()
+        sheet = client.open_by_key(SHEET_ID).worksheet("Uzytkownicy")
+        records = sheet.get_all_records()
+        for i, row in enumerate(records):
+            if str(row.get('Login')) == str(login):
+                # Usunięcie wiersza (dodajemy 2, bo index od 0, a 1 to nagłówki)
+                sheet.delete_rows(i + 2) 
+                return True
+        return False
+    except Exception as e:
+        st.error(f"Błąd usuwania z bazy: {e}")
+        return False
+
 # =========================================================
 # 2. INTERFEJS I STYLIZACJA (EXECUTIVE)
 # =========================================================
@@ -84,6 +101,14 @@ def apply_admin_theme():
         .alert-value {{ color: #FF4B4B !important; text-shadow: 0px 0px 10px rgba(255,75,75,0.4); }}
         .user-card {{ background: rgba(30, 30, 30, 0.9); border: 1px solid #444; border-left: 4px solid #2980B9; padding: 15px; margin-bottom: 10px; border-radius: 6px; }}
         .user-blocked {{ border-left-color: #FF4B4B !important; opacity: 0.6; }}
+        
+        /* Przyciski usuwania */
+        .btn-delete div[data-testid="stButton"] button {{
+            border-color: #FF4B4B !important; color: #FF4B4B !important; background: transparent !important;
+        }}
+        .btn-delete div[data-testid="stButton"] button:hover {{
+            background: #FF4B4B !important; color: #FFF !important;
+        }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -92,7 +117,9 @@ def apply_admin_theme():
 # =========================================================
 def run_admin():
     apply_admin_theme()
-    st.markdown("<h2>📈 VORTEZA EXECUTIVE | CENTRUM DOWODZENIA</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>📈 VORTEZA EXECUTIVE | ANALITYKA BIZNESOWA</h2>", unsafe_allow_html=True)
+    
+    current_user = st.session_state.get("username", "OPERATOR")
 
     # --- NAWIGACJA WEWNĘTRZNA SZEFA ---
     admin_mode = st.radio("WYBIERZ SEKCJE:", ["📊 ANALITYKA BIZNESOWA", "👥 ZARZĄDZANIE PERSONELEM (Konta)"], horizontal=True, label_visibility="collapsed")
@@ -198,7 +225,11 @@ def run_admin():
             
             if st.form_submit_button("➕ UTWÓRZ KONTO", use_container_width=True):
                 if new_login and new_haslo:
-                    if save_to_sheet("Uzytkownicy", [new_login, new_haslo, new_rola, "AKTYWNY"]):
+                    # Sprawdzenie czy użytkownik już istnieje
+                    df_check = load_sheet_data("Uzytkownicy")
+                    if not df_check.empty and new_login.lower() in df_check['Login'].astype(str).str.lower().values:
+                        st.error("Użytkownik o takim loginie już istnieje!")
+                    elif save_to_sheet("Uzytkownicy", [new_login, new_haslo, new_rola, "AKTYWNY"]):
                         st.success(f"Konto dla {new_login} zostało utworzone!"); st.rerun()
                     else: st.error("Błąd zapisu w bazie danych.")
                 else: st.error("Wypełnij Login i Hasło!")
@@ -232,16 +263,29 @@ def run_admin():
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Przyciski do blokowania / odblokowywania
-                col_btn, _ = st.columns([1, 4])
-                with col_btn:
+                # Przyciski akcji
+                col_btn_blk, col_btn_del, _ = st.columns([1, 1, 3])
+                
+                # Przycisk BLOKUJ / ODBLOKUJ
+                with col_btn_blk:
                     if status == "AKTYWNY":
-                        if login != "Piotr": # Blokada przed zablokowaniem samego siebie :)
-                            if st.button("🚫 ZABLOKUJ DOSTĘP", key=f"blk_{login}"):
+                        if login.lower() != "piotr" and login.lower() != current_user.lower():
+                            if st.button("🚫 ZABLOKUJ", key=f"blk_{login}", use_container_width=True):
                                 update_user_status(login, "ZABLOKOWANY"); st.rerun()
                     else:
-                        if st.button("✅ ODBLOKUJ", key=f"unb_{login}"):
+                        if st.button("✅ ODBLOKUJ", key=f"unb_{login}", use_container_width=True):
                             update_user_status(login, "AKTYWNY"); st.rerun()
+                
+                # Przycisk USUŃ
+                with col_btn_del:
+                    if login.lower() != "piotr" and login.lower() != current_user.lower():
+                        st.markdown("<div class='btn-delete'>", unsafe_allow_html=True)
+                        if st.button("🗑️ USUŃ", key=f"del_{login}", use_container_width=True):
+                            if delete_user(login):
+                                st.success("Konto usunięte!"); st.rerun()
+                            else:
+                                st.error("Błąd usuwania.")
+                        st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     run_admin()
