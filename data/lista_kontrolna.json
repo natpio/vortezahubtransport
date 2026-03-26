@@ -1,0 +1,44 @@
+{
+  "lista_kontrolna": {
+    "Stan Techniczny i Płyny": [
+      "Poziom oleju silnikowego",
+      "Poziom płynu chłodniczego",
+      "Poziom płynu hamulcowego",
+      "Poziom płynu do spryskiwaczy",
+      "Poziom płynu AdBlue",
+      "Ewentualne wycieki płynów",
+      "Akumulator (stan naładowania, mocowanie)",
+      "Działanie hamulca zasadniczego",
+      "Działanie hamulca postojowego"
+    ],
+    "Oświetlenie i Widoczność": [
+      "Oświetlenie (światła mijania, drogowe, pozycyjne)",
+      "Kierunkowskazy i światła awaryjne",
+      "Światła stopu i cofania",
+      "Wycieraczki (stan i działanie)",
+      "Szyby (pęknięcia, odpryski)",
+      "Lusterka (stan, stabilność zamocowania)"
+    ],
+    "Podwozie i Nadwozie": [
+      "Opony (stan bieżnika, ciśnienie, uszkodzenia)",
+      "Stan karoserii (nowe wgniecenia, rysy)",
+      "Szczelność dachu / plandeki (brak dziur)",
+      "Stan rolek i prowadnic kurtyny",
+      "Działanie windy załadowczej (jeśli dotyczy)"
+    ],
+    "Zabezpieczenie Ładunku i Sprzęt": [
+      "Stan pasów transportowych (przetarcia, napinacze)",
+      "Kompletność belek rozporowych / tyczek",
+      "Stan mat antypoślizgowych",
+      "Koło zapasowe lub zestaw naprawczy",
+      "Klucz do kół i podnośnik",
+      "Kamizelka odblaskowa, trójkąt i gaśnica"
+    ],
+    "Dokumentacja i Opłaty": [
+      "Dowód rejestracyjny i polisa OC",
+      "Ważność przeglądu technicznego",
+      "Urządzenie do opłat drogowych (e-TOLL / Boxy)",
+      "Apteczka pierwszej pomocy"
+    ]
+  }
+}

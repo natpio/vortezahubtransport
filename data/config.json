@@ -1,0 +1,1134 @@
+{
+    "EURO_RATE": 4.3,
+    "PRICE": {
+        "fuelPLN": 6.4,
+        "fuelEUR": 1.65,
+        "adBluePLN": 3.8,
+        "adBlueEUR": 1.4
+    },
+    "VEHICLE_DATA": {
+        "FTL": {
+            "fuelUsage": 0.3,
+            "adBlueUsage": 0.02,
+            "serviceCostPLN": 0.5,
+            "serviceCostEUR": 0.075,
+            "tankCapacity": 900
+        },
+        "Solo": {
+            "fuelUsage": 0.2,
+            "adBlueUsage": 0.02,
+            "serviceCostPLN": 0.5,
+            "serviceCostEUR": 0.075,
+            "tankCapacity": 600
+        },
+        "Bus": {
+            "fuelUsage": 0.14,
+            "adBlueUsage": 0.013,
+            "serviceCostPLN": 0.37,
+            "serviceCostEUR": 0.09,
+            "tankCapacity": 85
+        }
+    },
+    "DISTANCES_AND_MYTO": {
+        "Poznań": {
+            "Warszawa": {
+                "distPL": 354,
+                "distEU": 0,
+                "mytoFTL": 23.07,
+                "mytoSolo": 13.63,
+                "mytoBus": 0.0
+            },
+            "Gdańsk": {
+                "distPL": 313,
+                "distEU": 0,
+                "mytoFTL": 22.33,
+                "mytoSolo": 280.0,
+                "mytoBus": 140.0
+            },
+            "Gorzów Wielkopolski": {
+                "distPL": 151,
+                "distEU": 0,
+                "mytoFTL": 13.63,
+                "mytoSolo": 7.4,
+                "mytoBus": 29.32
+            },
+            "Berlin": {
+                "distPL": 172,
+                "distEU": 101,
+                "mytoFTL": 77.77,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Lipsk": {
+                "distPL": 172,
+                "distEU": 206,
+                "mytoFTL": 114.83,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Hannover": {
+                "distPL": 172,
+                "distEU": 353,
+                "mytoFTL": 164.94,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Hamburg": {
+                "distPL": 233,
+                "distEU": 342,
+                "mytoFTL": 128.95,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Monachium": {
+                "distPL": 237,
+                "distEU": 271,
+                "mytoFTL": 124.81,
+                "mytoSolo": 150.0,
+                "mytoBus": 75.0
+            },
+            "Frankfurt nad Menem": {
+                "distPL": 224,
+                "distEU": 573,
+                "mytoFTL": 197.36,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Norymberga": {
+                "distPL": 237,
+                "distEU": 183,
+                "mytoFTL": 94.03,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kolonia/Dusseldorf": {
+                "distPL": 172,
+                "distEU": 643,
+                "mytoFTL": 265.89,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Paryż": {
+                "distPL": 172,
+                "distEU": 1144,
+                "mytoFTL": 355.82,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Lyon": {
+                "distPL": 237,
+                "distEU": 183,
+                "mytoFTL": 349.55,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Cannes/Nicea": {
+                "distPL": 265,
+                "distEU": 1062,
+                "mytoFTL": 450.04,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Tuluza": {
+                "distPL": 241,
+                "distEU": 1669,
+                "mytoFTL": 420.79,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Mediolan": {
+                "distPL": 236,
+                "distEU": 1034,
+                "mytoFTL": 458.37,
+                "mytoSolo": 180.0,
+                "mytoBus": 90.0
+            },
+            "Rzym": {
+                "distPL": 310,
+                "distEU": 1352,
+                "mytoFTL": 337.72,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Barcelona": {
+                "distPL": 241,
+                "distEU": 1832,
+                "mytoFTL": 572.8,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Madryt": {
+                "distPL": 500,
+                "distEU": 2339,
+                "mytoFTL": 503.09,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sewilla": {
+                "distPL": 240,
+                "distEU": 2129,
+                "mytoFTL": 592.01,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Lizbona": {
+                "distPL": 171,
+                "distEU": 2834,
+                "mytoFTL": 635.67,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Genewa": {
+                "distPL": 236,
+                "distEU": 1098,
+                "mytoFTL": 501.76,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Bazylea": {
+                "distPL": 237,
+                "distEU": 892,
+                "mytoFTL": 235.71,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Londyn": {
+                "distPL": 171,
+                "distEU": 915,
+                "mytoFTL": 282.0,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Liverpool": {
+                "distPL": 238,
+                "distEU": 761,
+                "mytoFTL": 284.85,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Manchester": {
+                "distPL": 238,
+                "distEU": 704,
+                "mytoFTL": 284.85,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Amsterdam": {
+                "distPL": 172,
+                "distEU": 730,
+                "mytoFTL": 250.7,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Bruksela": {
+                "distPL": 171,
+                "distEU": 865,
+                "mytoFTL": 270.0,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            },
+            "Kopenhaga": {
+                "distPL": 327,
+                "distEU": 60,
+                "mytoFTL": 259.16,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sztokholm": {
+                "distPL": 341,
+                "distEU": 68,
+                "mytoFTL": 19.46,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Wiedeń": {
+                "distPL": 298,
+                "distEU": 296,
+                "mytoFTL": 63.53,
+                "mytoSolo": 150.0,
+                "mytoBus": 75.0
+            },
+            "Praga": {
+                "distPL": 264,
+                "distEU": 138,
+                "mytoFTL": 35.0,
+                "mytoSolo": 80.0,
+                "mytoBus": 40.0
+            },
+            "Budapeszt": {
+                "distPL": 389,
+                "distEU": 342,
+                "mytoFTL": 85.32,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sofia": {
+                "distPL": 388,
+                "distEU": 1113,
+                "mytoFTL": 332.64,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kielce": {
+                "distPL": 363,
+                "distEU": 0,
+                "mytoFTL": 11.99,
+                "mytoSolo": 600.0,
+                "mytoBus": 300.0
+            },
+            "Stuttgart": {
+                "distPL": 237,
+                "distEU": 363,
+                "mytoFTL": 154.98,
+                "mytoSolo": 130.0,
+                "mytoBus": 65.0
+            },
+            "Essen": {
+                "distPL": 172,
+                "distEU": 597,
+                "mytoFTL": 250.06,
+                "mytoSolo": 130.0,
+                "mytoBus": 65.0
+            },
+            "Strasburg": {
+                "distPL": 171,
+                "distEU": 1700,
+                "mytoFTL": 364.1,
+                "mytoSolo": 140.0,
+                "mytoBus": 70.0
+            },
+            "Bordeaux": {
+                "distPL": 200,
+                "distEU": 1700,
+                "mytoFTL": 180,
+                "mytoSolo": 180,
+                "mytoBus": 90
+            },
+            "Rotterdam": {
+                "distPL": 171,
+                "distEU": 730,
+                "mytoFTL": 250.7,
+                "mytoSolo": 130.0,
+                "mytoBus": 65.0
+            },
+            "Antwerpia": {
+                "distPL": 172,
+                "distEU": 822,
+                "mytoFTL": 259.03,
+                "mytoSolo": 130.0,
+                "mytoBus": 65.0
+            },
+            "Oslo": {
+                "distPL": 331,
+                "distEU": 591,
+                "mytoFTL": 69.95,
+                "mytoSolo": 250.0,
+                "mytoBus": 125.0
+            },
+            "Walencja": {
+                "distPL": 240,
+                "distEU": 1481,
+                "mytoFTL": 592.01,
+                "mytoSolo": 220.0,
+                "mytoBus": 110.0
+            },
+            "Turyn": {
+                "distPL": 236,
+                "distEU": 1137,
+                "mytoFTL": 473.85,
+                "mytoSolo": 190.0,
+                "mytoBus": 95.0
+            },
+            "Bratysława": {
+                "distPL": 298,
+                "distEU": 300,
+                "mytoFTL": 51.0,
+                "mytoSolo": 140.0,
+                "mytoBus": 70.0
+            },
+            "Brno": {
+                "distPL": 298,
+                "distEU": 168,
+                "mytoFTL": 17.12,
+                "mytoSolo": 90.0,
+                "mytoBus": 45.0
+            },
+            "Wrocław": {
+                "distPL": 176,
+                "distEU": 0,
+                "mytoFTL": 7.92,
+                "mytoSolo": 80.0,
+                "mytoBus": 40.0
+            },
+            "Kraków": {
+                "distPL": 407,
+                "distEU": 0,
+                "mytoFTL": 14.33,
+                "mytoSolo": 150.0,
+                "mytoBus": 75.0
+            }
+        },
+        "Warszawa": {
+            "Poznań": {
+                "distPL": 352,
+                "distEU": 0,
+                "mytoFTL": 21.85,
+                "mytoSolo": 220.0,
+                "mytoBus": 110.0
+            },
+            "Gdańsk": {
+                "distPL": 349,
+                "distEU": 0,
+                "mytoFTL": 15.8,
+                "mytoSolo": 250.0,
+                "mytoBus": 125.0
+            },
+            "Kielce": {
+                "distPL": 181,
+                "distEU": 0,
+                "mytoFTL": 1.62,
+                "mytoSolo": 80.0,
+                "mytoBus": 40.0
+            },
+            "Gorzów Wielkopolski": {
+                "distPL": 484,
+                "distEU": 0,
+                "mytoFTL": 7.55,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Berlin": {
+                "distPL": 540,
+                "distEU": 130,
+                "mytoFTL": 59.69,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Lipsk": {
+                "distPL": 520,
+                "distEU": 210,
+                "mytoFTL": 101.75,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Hannover": {
+                "distPL": 471,
+                "distEU": 353,
+                "mytoFTL": 253.06,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Hamburg": {
+                "distPL": 545,
+                "distEU": 333,
+                "mytoFTL": 127.02,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Monachium": {
+                "distPL": 356,
+                "distEU": 672,
+                "mytoFTL": 187.55,
+                "mytoSolo": 380.0,
+                "mytoBus": 190.0
+            },
+            "Frankfurt nad Menem": {
+                "distPL": 520,
+                "distEU": 558,
+                "mytoFTL": 238.32,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Norymberga": {
+                "distPL": 470,
+                "distEU": 474,
+                "mytoFTL": 147.41,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kolonia/Dusseldorf": {
+                "distPL": 514,
+                "distEU": 678,
+                "mytoFTL": 295.91,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Paryż": {
+                "distPL": 514,
+                "distEU": 1130,
+                "mytoFTL": 421.76,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Lyon": {
+                "distPL": 514,
+                "distEU": 1200,
+                "mytoFTL": 464.32,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Cannes/Nicea": {
+                "distPL": 356,
+                "distEU": 1479,
+                "mytoFTL": 526.37,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Tuluza": {
+                "distPL": 514,
+                "distEU": 1689,
+                "mytoFTL": 507.76,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Mediolan": {
+                "distPL": 356,
+                "distEU": 1141,
+                "mytoFTL": 451.6,
+                "mytoSolo": 380.0,
+                "mytoBus": 190.0
+            },
+            "Rzym": {
+                "distPL": 356,
+                "distEU": 1224,
+                "mytoFTL": 311.81,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Barcelona": {
+                "distPL": 514,
+                "distEU": 1832,
+                "mytoFTL": 622.12,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Madryt": {
+                "distPL": 514,
+                "distEU": 2339,
+                "mytoFTL": 552.32,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sewilla": {
+                "distPL": 514,
+                "distEU": 2825,
+                "mytoFTL": 622.12,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Lizbona": {
+                "distPL": 514,
+                "distEU": 2818,
+                "mytoFTL": 660.91,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Genewa": {
+                "distPL": 514,
+                "distEU": 1045,
+                "mytoFTL": 616.53,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Bazylea": {
+                "distPL": 470,
+                "distEU": 896,
+                "mytoFTL": 289.09,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Londyn": {
+                "distPL": 470,
+                "distEU": 914,
+                "mytoFTL": 355.43,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Liverpool": {
+                "distPL": 469,
+                "distEU": 1001,
+                "mytoFTL": 356.28,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Manchester": {
+                "distPL": 470,
+                "distEU": 952,
+                "mytoFTL": 356.28,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Amsterdam": {
+                "distPL": 470,
+                "distEU": 729,
+                "mytoFTL": 345.47,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Bruksela": {
+                "distPL": 470,
+                "distEU": 865,
+                "mytoFTL": 364.0,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kopenhaga": {
+                "distPL": 582,
+                "distEU": 55,
+                "mytoFTL": 253.26,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sztokholm": {
+                "distPL": 343,
+                "distEU": 68,
+                "mytoFTL": 55.49,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Wiedeń": {
+                "distPL": 356,
+                "distEU": 312,
+                "mytoFTL": 119.0,
+                "mytoSolo": 280.0,
+                "mytoBus": 140.0
+            },
+            "Praga": {
+                "distPL": 470,
+                "distEU": 153,
+                "mytoFTL": 59.57,
+                "mytoSolo": 300.0,
+                "mytoBus": 150.0
+            },
+            "Budapeszt": {
+                "distPL": 399,
+                "distEU": 315,
+                "mytoFTL": 115.35,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sofia": {
+                "distPL": 403,
+                "distEU": 1065,
+                "mytoFTL": 278.47,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Stuttgart": {
+                "distPL": 470,
+                "distEU": 655,
+                "mytoFTL": 208.36,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Essen": {
+                "distPL": 469,
+                "distEU": 596,
+                "mytoFTL": 345.09,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Strasburg": {
+                "distPL": 470,
+                "distEU": 787,
+                "mytoFTL": 255.43,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Bordeaux": {
+                "distPL": 514,
+                "distEU": 1665,
+                "mytoFTL": 531.9,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Rotterdam": {
+                "distPL": 470,
+                "distEU": 760,
+                "mytoFTL": 345.47,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Antwerpia": {
+                "distPL": 470,
+                "distEU": 822,
+                "mytoFTL": 354.06,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Oslo": {
+                "distPL": 524,
+                "distEU": 160,
+                "mytoFTL": 77.8,
+                "mytoSolo": 400.0,
+                "mytoBus": 200.0
+            },
+            "Walencja": {
+                "distPL": 356,
+                "distEU": 1623,
+                "mytoFTL": 475.87,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Turyn": {
+                "distPL": 356,
+                "distEU": 1278,
+                "mytoFTL": 461.57,
+                "mytoSolo": 380.0,
+                "mytoBus": 190.0
+            },
+            "Bratysława": {
+                "distPL": 357,
+                "distEU": 286,
+                "mytoFTL": 102.0,
+                "mytoSolo": 280.0,
+                "mytoBus": 140.0
+            },
+            "Brno": {
+                "distPL": 372,
+                "distEU": 186,
+                "mytoFTL": 33.31,
+                "mytoSolo": 300.0,
+                "mytoBus": 150.0
+            },
+            "Wrocław": {
+                "distPL": 363,
+                "distEU": 0,
+                "mytoFTL": 24.0,
+                "mytoSolo": 180.0,
+                "mytoBus": 90.0
+            },
+            "Kraków": {
+                "distPL": 291,
+                "distEU": 0,
+                "mytoFTL": 30.99,
+                "mytoSolo": 120.0,
+                "mytoBus": 60.0
+            }
+        },
+        "Gdańsk": {
+            "Poznań": {
+                "distPL": 337,
+                "distEU": 0,
+                "mytoFTL": 4.19,
+                "mytoSolo": 280.0,
+                "mytoBus": 140.0
+            },
+            "Warszawa": {
+                "distPL": 355,
+                "distEU": 0,
+                "mytoFTL": 16.03,
+                "mytoSolo": 250.0,
+                "mytoBus": 125.0
+            },
+            "Kielce": {
+                "distPL": 475,
+                "distEU": 0,
+                "mytoFTL": 45.47,
+                "mytoSolo": 350.0,
+                "mytoBus": 175.0
+            },
+            "Gorzów Wielkopolski": {
+                "distPL": 328,
+                "distEU": 0,
+                "mytoFTL": 0.0,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Berlin": {
+                "distPL": 421,
+                "distEU": 101,
+                "mytoFTL": 38.7,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Lipsk": {
+                "distPL": 421,
+                "distEU": 205,
+                "mytoFTL": 75.75,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Hamburg": {
+                "distPL": 376,
+                "distEU": 350,
+                "mytoFTL": 115.44,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Hannover": {
+                "distPL": 421,
+                "distEU": 353,
+                "mytoFTL": 125.87,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Monachium": {
+                "distPL": 571,
+                "distEU": 554,
+                "mytoFTL": 165.74,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Frankfurt nad Menem": {
+                "distPL": 421,
+                "distEU": 590,
+                "mytoFTL": 206.17,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Norymberga": {
+                "distPL": 421,
+                "distEU": 487,
+                "mytoFTL": 168.26,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kolonia/Dusseldorf": {
+                "distPL": 421,
+                "distEU": 643,
+                "mytoFTL": 226.82,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Paryż": {
+                "distPL": 421,
+                "distEU": 1123,
+                "mytoFTL": 337.43,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Lyon": {
+                "distPL": 377,
+                "distEU": 1324,
+                "mytoFTL": 426.29,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Cannes/Nicea": {
+                "distPL": 421,
+                "distEU": 1415,
+                "mytoFTL": 653.7,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Tuluza": {
+                "distPL": 377,
+                "distEU": 1779,
+                "mytoFTL": 494.36,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Mediolan": {
+                "distPL": 421,
+                "distEU": 1070,
+                "mytoFTL": 550.37,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Rzym": {
+                "distPL": 588,
+                "distEU": 1224,
+                "mytoFTL": 339.73,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Barcelona": {
+                "distPL": 421,
+                "distEU": 1911,
+                "mytoFTL": 584.05,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Madryt": {
+                "distPL": 421,
+                "distEU": 1911,
+                "mytoFTL": 584.05,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sewilla": {
+                "distPL": 377,
+                "distEU": 2282,
+                "mytoFTL": 657.32,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Lizbona": {
+                "distPL": 421,
+                "distEU": 2834,
+                "mytoFTL": 596.33,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Genewa": {
+                "distPL": 421,
+                "distEU": 1123,
+                "mytoFTL": 577.57,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Bazylea": {
+                "distPL": 514,
+                "distEU": 823,
+                "mytoFTL": 312.4,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Londyn": {
+                "distPL": 377,
+                "distEU": 975,
+                "mytoFTL": 274.36,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Liverpool": {
+                "distPL": 359,
+                "distEU": 575,
+                "mytoFTL": 449.58,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Manchester": {
+                "distPL": 359,
+                "distEU": 517,
+                "mytoFTL": 448.14,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Amsterdam": {
+                "distPL": 421,
+                "distEU": 730,
+                "mytoFTL": 211.36,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Bruksela": {
+                "distPL": 421,
+                "distEU": 824,
+                "mytoFTL": 282.92,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Kopenhaga": {
+                "distPL": 38,
+                "distEU": 249,
+                "mytoFTL": 242.06,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sztokholm": {
+                "distPL": 12,
+                "distEU": 647,
+                "mytoFTL": 15.04,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Wiedeń": {
+                "distPL": 578,
+                "distEU": 296,
+                "mytoFTL": 88.17,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Praga": {
+                "distPL": 571,
+                "distEU": 138,
+                "mytoFTL": 70.54,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Budapeszt": {
+                "distPL": 630,
+                "distEU": 315,
+                "mytoFTL": 142.17,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Sofia": {
+                "distPL": 705,
+                "distEU": 1065,
+                "mytoFTL": 307.06,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Stuttgart": {
+                "distPL": 421,
+                "distEU": 675,
+                "mytoFTL": 233.7,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Essen": {
+                "distPL": 421,
+                "distEU": 596,
+                "mytoFTL": 210.99,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Strasburg": {
+                "distPL": 421,
+                "distEU": 808,
+                "mytoFTL": 278.75,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Bordeaux": {
+                "distPL": 377,
+                "distEU": 1761,
+                "mytoFTL": 369.96,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Rotterdam": {
+                "distPL": 421,
+                "distEU": 760,
+                "mytoFTL": 211.36,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Antwerpia": {
+                "distPL": 421,
+                "distEU": 793,
+                "mytoFTL": 257.13,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Oslo": {
+                "distPL": 12,
+                "distEU": 533,
+                "mytoFTL": 32.52,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Walencja": {
+                "distPL": 421,
+                "distEU": 2254,
+                "mytoFTL": 584.06,
+                "mytoSolo": 200.0,
+                "mytoBus": 100.0
+            },
+            "Turyn": {
+                "distPL": 421,
+                "distEU": 1175,
+                "mytoFTL": 565.05,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Bratysława": {
+                "distPL": 559,
+                "distEU": 310,
+                "mytoFTL": 73.07,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Brno": {
+                "distPL": 560,
+                "distEU": 187,
+                "mytoFTL": 39.14,
+                "mytoSolo": 0.0,
+                "mytoBus": 0.0
+            },
+            "Wrocław": {
+                "distPL": 455,
+                "distEU": 0,
+                "mytoFTL": 32.52,
+                "mytoSolo": 220.0,
+                "mytoBus": 110.0
+            },
+            "Kraków": {
+                "distPL": 556,
+                "distEU": 0,
+                "mytoFTL": 52.29,
+                "mytoSolo": 300.0,
+                "mytoBus": 150.0
+            }
+        },
+        "Gorzów Wielkopolski": {
+            "Poznań": {
+                "distPL": 160,
+                "distEU": 0,
+                "mytoFTL": 100,
+                "mytoSolo": 100,
+                "mytoBus": 50
+            },
+            "Warszawa": {
+                "distPL": 470,
+                "distEU": 0,
+                "mytoFTL": 350,
+                "mytoSolo": 350,
+                "mytoBus": 175
+            },
+            "Gdańsk": {
+                "distPL": 350,
+                "distEU": 0,
+                "mytoFTL": 200,
+                "mytoSolo": 200,
+                "mytoBus": 100
+            },
+            "Berlin": {
+                "distPL": 50,
+                "distEU": 100,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Lipsk": {
+                "distPL": 80,
+                "distEU": 250,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Hannover": {
+                "distPL": 80,
+                "distEU": 300,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Paryż": {
+                "distPL": 50,
+                "distEU": 1050,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Lyon": {
+                "distPL": 80,
+                "distEU": 1350,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Amsterdam": {
+                "distPL": 50,
+                "distEU": 600,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Bruksela": {
+                "distPL": 50,
+                "distEU": 700,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Londyn": {
+                "distPL": 50,
+                "distEU": 1100,
+                "mytoFTL": 0,
+                "mytoSolo": 0,
+                "mytoBus": 0
+            },
+            "Barcelona": {
+                "distPL": 120,
+                "distEU": 2000,
+                "mytoFTL": 50,
+                "mytoSolo": 50,
+                "mytoBus": 25
+            }
+        }
+    }
+}
