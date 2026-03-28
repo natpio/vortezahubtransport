@@ -13,6 +13,7 @@ import gspread
 PATH_BG = os.path.join("assets", "tlo_hub_2.jpg")
 SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
+@st.cache_data
 def load_vorteza_asset_b64(file_path):
     try:
         if os.path.exists(file_path):
@@ -21,6 +22,7 @@ def load_vorteza_asset_b64(file_path):
         return ""
     except: return ""
 
+@st.cache_resource # <--- Szybkie połączenie nawiązywane raz na sesję
 def get_gspread_client():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
@@ -42,6 +44,7 @@ def save_to_sheet(worksheet_name, row_data):
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
         sheet.append_row(row_data)
+        load_sheet_data.clear() # <--- Inteligentne czyszczenie cache po zapisie
         return True
     except: return False
 
@@ -53,6 +56,7 @@ def update_user_status(login, new_status):
         for i, row in enumerate(records):
             if str(row.get('Login')) == str(login):
                 sheet.update_cell(i + 2, 4, new_status)
+                load_sheet_data.clear() # <--- Inteligentne czyszczenie
                 return True
         return False
     except: return False
@@ -65,6 +69,7 @@ def delete_user(login):
         for i, row in enumerate(records):
             if str(row.get('Login')) == str(login):
                 sheet.delete_rows(i + 2) 
+                load_sheet_data.clear() # <--- Inteligentne czyszczenie
                 return True
         return False
     except Exception as e:
