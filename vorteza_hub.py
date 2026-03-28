@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import json
 import os
@@ -17,13 +18,13 @@ try:
 except ImportError as e:
     st.error(f"KRYTYCZNY BŁĄD IMPORTU: Upewnij się, że wszystkie pliki modułów są w folderze. Szczegóły: {e}")
 
-# --- 2. KONFIGURACJA CENTRALNA ---
+# --- 2. KONFIGURACJA ---
 st.set_page_config(page_title="VORTEZA TMS v25.0", layout="wide", initial_sidebar_state="expanded", page_icon="🕋")
 SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
 @st.cache_resource
 def get_gspread_client():
-    """Tworzy i cache'uje połączenie z Google Sheets na całą sesję."""
+    """Tworzy i cache'uje połączenie z Google Sheets dla HUB-a na całą sesję."""
     try:
         creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
         credentials = Credentials.from_service_account_info(
@@ -39,8 +40,7 @@ def get_gspread_client():
 def get_base64_of_bin_file(bin_file):
     try:
         if os.path.exists(bin_file):
-            with open(bin_file, 'rb') as f: 
-                return base64.b64encode(f.read()).decode()
+            with open(bin_file, 'rb') as f: return base64.b64encode(f.read()).decode()
         return ""
     except: return ""
 
@@ -57,7 +57,7 @@ def get_dashboard_stats():
     except: pass
     return stats
 
-# --- 3. SILNIK AUTORYZACJI (ZOPTYMALIZOWANY) ---
+# --- 3. SILNIK AUTORYZACJI Z GOOGLE SHEETS (IAM) ---
 def authenticate_user(username, password):
     if username.strip().upper() == "MASTER" and password == st.secrets.get("password", ""):
         return "ADMINISTRATOR / SZEF"
@@ -65,7 +65,7 @@ def authenticate_user(username, password):
     client = get_gspread_client()
     if not client:
         return None
-        
+
     try:
         sheet = client.open_by_key(SHEET_ID).worksheet("Uzytkownicy")
         records = sheet.get_all_records()
@@ -103,8 +103,7 @@ def inject_hub_theme():
         </style>
     """, unsafe_allow_html=True)
 
-def navigate_to(page_name): 
-    st.session_state.active_module = page_name
+def navigate_to(page_name): st.session_state.active_module = page_name
 
 # --- 5. GŁÓWNA LOGIKA HUB-A ---
 def main_hub():
@@ -121,6 +120,7 @@ def main_hub():
         with col:
             video_path = os.path.join("assets", "video 1.mp4")
             if os.path.exists(video_path): st.video(video_path, autoplay=True, muted=True, loop=False)
+            else: st.markdown("<br><br>", unsafe_allow_html=True)
             
             st.markdown("<h1 style='text-align:center;'>VORTEZA TMS LOGIN</h1>", unsafe_allow_html=True)
             with st.form("ApexAuth"):
@@ -146,38 +146,63 @@ def main_hub():
                     else: st.warning("Wpisz login i hasło.")
         return
 
-    # --- SIDEBAR NAWIGACYJNY ---
-    with st.sidebar:
-        logo_path = os.path.join("assets", "logo_vorteza.png")
-        if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
-        else: st.markdown("<h2 style='letter-spacing:10px; text-align:center;'>VORTEZA</h2>", unsafe_allow_html=True)
+    # --- UKRYCIE SIDEBARU NA PULPICIE GŁÓWNYM ---
+    if st.session_state.active_module == "PULPIT (DASHBOARD)":
+        st.markdown("""<style>[data-testid="collapsedControl"] { display: none !important; } section[data-testid="stSidebar"] { display: none !important; }</style>""", unsafe_allow_html=True)
+    else:
+        with st.sidebar:
+            logo_path = os.path.join("assets", "logo_vorteza.png")
+            if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
+            else: st.markdown("<h2 style='letter-spacing:10px; text-align:center;'>VORTEZA</h2>", unsafe_allow_html=True)
+                
+            st.markdown("<div style='text-align:center;'><span style='color: #00FF41; font-family: JetBrains Mono; font-size: 0.8rem;'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
+            st.divider()
             
-        st.markdown("<div style='text-align:center;'><span style='color: #00FF41; font-family: JetBrains Mono; font-size: 0.8rem;'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
-        st.divider()
-        
-        # Nawigacja
-        if st.session_state.role == "KIEROWCA":
-            st.button("TERMINAL MOBILNY (BASE)", key="sb_nav_base_driver", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
-        else:
-            st.button("🏠 PULPIT (DASHBOARD)", key="sb_nav_dash", on_click=navigate_to, args=("PULPIT (DASHBOARD)",), use_container_width=True)
-            st.button("📦 ZLECENIA I SPEDYCJA", key="sb_nav_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
-            st.button("🏗️ PLANER 3D (STACK)", key="sb_nav_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
-            st.button("💰 FINANSE (FLOW)", key="sb_nav_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
-            st.button("🚛 FLOTA (BASE)", key="sb_nav_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
-
-            if st.session_state.role == "ADMINISTRATOR / SZEF":
+            # --- NAWIGACJA ZALEŻNA OD ROLI ---
+            if st.session_state.role == "KIEROWCA":
+                st.markdown("### PANEL KIEROWCY")
+                st.button("TERMINAL MOBILNY (BASE)", key="sb_nav_base_driver", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
+            else:
+                c1, c2 = st.columns([1, 4])
+                with c1:
+                    if os.path.exists(os.path.join("assets", "home.jpg")): st.image(os.path.join("assets", "home.jpg"))
+                with c2: st.button("PULPIT (DASHBOARD)", key="sb_nav_dash", on_click=navigate_to, args=("PULPIT (DASHBOARD)",), use_container_width=True)
                 st.markdown("<br>", unsafe_allow_html=True)
-                st.button("📊 RAPORTY I KADRY", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
+                
+                c1, c2 = st.columns([1, 4])
+                with c1: st.markdown("""<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; filter: drop-shadow(0px 0px 3px #B58863);"><path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/><path d="M3 12L12 17L21 12" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/><path d="M3 17L12 22L21 17" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/></svg>""", unsafe_allow_html=True)
+                with c2: st.button("ZLECENIA I SPEDYCJA", key="sb_nav_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
+                
+                c1, c2 = st.columns([1, 4])
+                with c1:
+                    if os.path.exists(os.path.join("assets", "icon_stack.png")): st.image(os.path.join("assets", "icon_stack.png"))
+                with c2: st.button("PLANER 3D (STACK)", key="sb_nav_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
+                
+                c1, c2 = st.columns([1, 4])
+                with c1:
+                    if os.path.exists(os.path.join("assets", "icon_flow.png")): st.image(os.path.join("assets", "icon_flow.png"))
+                with c2: st.button("FINANSE (FLOW)", key="sb_nav_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
+                
+                c1, c2 = st.columns([1, 4])
+                with c1:
+                    if os.path.exists(os.path.join("assets", "icon_base.png")): st.image(os.path.join("assets", "icon_base.png"))
+                with c2: st.button("FLOTA (BASE)", key="sb_nav_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
 
-        st.divider()
-        st.markdown(f"**UŻYTKOWNIK:** {st.session_state.username}")
-        st.markdown(f"**ROLA:** {st.session_state.role}")
-        if st.button("WYLOGUJ Z SYSTEMU", key="sb_logout"):
-            st.session_state.global_auth = False
-            st.rerun()
+                if st.session_state.role == "ADMINISTRATOR / SZEF":
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.button("📊 RAPORTY I KADRY", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
+
+            st.divider()
+            st.markdown(f"**UŻYTKOWNIK:** {st.session_state.username}")
+            st.markdown(f"**ROLA:** {st.session_state.role}")
+            if st.button("WYLOGUJ Z SYSTEMU", key="sb_logout"):
+                st.session_state.global_auth = False
+                st.session_state.username = "UNAUTHORIZED"
+                st.session_state.role = "BRAK"
+                st.rerun()
 
     # --- RENDEROWANIE MODUŁÓW ---
-    if st.session_state.active_module == "PULPIT (DASHBOARD)":
+    if st.session_state.active_module == "PULPIT (DASHBOARD)" and st.session_state.role != "KIEROWCA":
         st.markdown("<h1>DASHBOARD SPEDYTORA</h1>", unsafe_allow_html=True)
         banner_path = os.path.join("assets", "baner 1.jpg")
         if os.path.exists(banner_path):
@@ -193,23 +218,29 @@ def main_hub():
         st.markdown("<br><br>", unsafe_allow_html=True)
         m0, m1, m2, m3 = st.columns(4)
         with m0:
-            st.markdown("<div class='module-card'><h4>ZLECENIA</h4></div>", unsafe_allow_html=True)
-            st.button("OTWÓRZ CORE", key="btn_go_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
+            st.markdown("""<div class='module-card'><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 45%; max-width: 150px; display: block; margin: 0 auto; filter: drop-shadow(0px 0px 10px rgba(181,136,99,0.5));"><path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 12L12 17L21 12" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 17L12 22L21 17" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/></svg><h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>ZLECENIA</h4></div>""", unsafe_allow_html=True)
+            st.button("URUCHOM CORE", key="btn_go_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
         with m1:
-            st.markdown("<div class='module-card'><h4>PLANER 3D</h4></div>", unsafe_allow_html=True)
-            st.button("OTWÓRZ STACK", key="btn_go_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
+            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_stack.png"))
+            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
+            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>PLANER 3D</h4></div>", unsafe_allow_html=True)
+            st.button("URUCHOM STACK", key="btn_go_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
         with m2:
-            st.markdown("<div class='module-card'><h4>FINANSE</h4></div>", unsafe_allow_html=True)
-            st.button("OTWÓRZ FLOW", key="btn_go_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
+            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_flow.png"))
+            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
+            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>FINANSE</h4></div>", unsafe_allow_html=True)
+            st.button("URUCHOM FLOW", key="btn_go_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
         with m3:
-            st.markdown("<div class='module-card'><h4>FLOTA</h4></div>", unsafe_allow_html=True)
-            st.button("OTWÓRZ BASE", key="btn_go_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
+            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_base.png"))
+            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
+            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>FLOTA</h4></div>", unsafe_allow_html=True)
+            st.button("URUCHOM BASE", key="btn_go_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
 
-    elif st.session_state.active_module == "ZLECENIA (CORE)": run_core()
-    elif st.session_state.active_module == "PLANER 3D (STACK)": run_stack()
-    elif st.session_state.active_module == "FINANSE (FLOW)": run_flow()
+    elif st.session_state.active_module == "ZLECENIA (CORE)" and st.session_state.role != "KIEROWCA": run_core()
+    elif st.session_state.active_module == "PLANER 3D (STACK)" and st.session_state.role != "KIEROWCA": run_stack()
+    elif st.session_state.active_module == "FINANSE (FLOW)" and st.session_state.role != "KIEROWCA": run_flow()
     elif st.session_state.active_module == "FLOTA (BASE)": run_base()
-    elif st.session_state.active_module == "RAPORTY (ADMIN)": run_admin()
+    elif st.session_state.active_module == "RAPORTY (ADMIN)" and st.session_state.role == "ADMINISTRATOR / SZEF": run_admin()
 
 if __name__ == "__main__":
     main_hub()
