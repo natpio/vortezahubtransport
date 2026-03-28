@@ -35,7 +35,7 @@ LANGUAGES = {
     }
 }
 
-# REJESTR POJAZDÓW (Uporządkowany od najmniejszego do największego)
+# REJESTR POJAZDÓW
 FLEET_MASTER_DATA = {
     "BUS Opel Movano": {"max_w": 1300, "L": 420, "W": 210, "H": 230, "axles": 2, "cab_l": 150, "total_ldm": 4.2},
     "Solo 6m Light": {"max_w": 5000, "L": 610, "W": 245, "H": 250, "axles": 2, "cab_l": 180, "total_ldm": 6.1},
@@ -46,12 +46,19 @@ FLEET_MASTER_DATA = {
 }
 
 # ==============================================================================
-# 1. UI ENGINE: APEX DARK & COLOR FIX
+# 1. OPTYMALIZACJA WIZUALIZACJI I ZASOBÓW
 # ==============================================================================
+@st.cache_data # <--- Krytyczna optymalizacja! Tło ładuje się raz z dysku
+def load_vorteza_asset_b64(file_path):
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as f:
+                return base64.b64encode(f.read()).decode()
+        return ""
+    except: return ""
+
 def inject_vorteza_stack_ui():
-    bg_data = ""
-    if os.path.exists(PATH_BG):
-        with open(PATH_BG, 'rb') as f: bg_data = base64.b64encode(f.read()).decode()
+    bg_data = load_vorteza_asset_b64(PATH_BG)
     
     st.markdown(f"""
         <style>
@@ -98,17 +105,14 @@ def render_vorteza_pro_3d(veh, stacks):
     fig = go.Figure()
     L, W, H, cab = veh['L'], veh['W'], veh['H'], veh['cab_l']
     
-    # Rama i Podwozie
     fig.add_trace(build_mesh([0, L, L, 0, 0, L, L, 0], [0, 0, W, W, 0, 0, W, W], [-10, -10, -10, -10, -2, -2, -2, -2], "#B58863", "RAMA"))
     for ax in range(veh['axles']):
         pos_x = L - 380 + (ax * 135) if L > 500 else L - 150 + (ax * 100)
         for side in [-35, W+15]:
             fig.add_trace(build_mesh([pos_x-50, pos_x+50, pos_x+50, pos_x-50, pos_x-50, pos_x+50, pos_x+50, pos_x-50], [side, side, side+20, side+20, side, side, side+20, side+20], [-80, -80, -80, -80, -5, -5, -5, -5], "#000", "KOŁO"))
     
-    # Kabina
     fig.add_trace(build_mesh([-cab, 0, 0, -cab, -cab, 0, 0, -cab], [-15, -15, W+15, W+15, -15, -15, W+15, W+15], [0, 0, 0, 0, H*0.95, H*0.95, H*0.95, H*0.95], "#050505", "KABINA"))
     
-    # Kontury Naczepy
     skel_lines = [
         ([0, L], [0, 0], [0, 0]), ([0, L], [W, W], [0, 0]), ([0, 0], [0, W], [0, 0]), ([L, L], [0, W], [0, 0]),
         ([0, L], [0, 0], [H, H]), ([0, L], [W, W], [H, H]), ([0, 0], [0, W], [H, H]), ([L, L], [0, W], [H, H]),
@@ -117,7 +121,6 @@ def render_vorteza_pro_3d(veh, stacks):
     for lx, ly, lz in skel_lines:
         fig.add_trace(go.Scatter3d(x=lx, y=ly, z=lz, mode='lines', line=dict(color='#B58863', width=5), hoverinfo='skip'))
     
-    # Ładunek Solidny
     for s in stacks:
         for u in s['items']:
             clr = get_vorteza_sku_hex(u['name'])
@@ -183,6 +186,7 @@ class V26FleetOptimizer:
 # ==============================================================================
 # 5. GŁÓWNA FUNKCJA URUCHOMIENIOWA
 # ==============================================================================
+@st.cache_data # <--- Buforuje całą bazę JSON
 def db_core_load():
     if os.path.exists(PATH_DATA):
         try:
@@ -193,6 +197,16 @@ def db_core_load():
 def db_core_save(data):
     with open(PATH_DATA, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+    db_core_load.clear() # Czyścimy cache, żeby po zapisie Streamlit widział nowe wymiary
+
+@st.fragment
+def render_database_editor(inventory, L):
+    st.markdown(f"### 📦 {L['inventory']}")
+    new_db = st.data_editor(pd.DataFrame(inventory), use_container_width=True, num_rows="dynamic", key="db_edit")
+    if st.button(L['save_db']):
+        db_core_save(new_db.to_dict('records'))
+        st.success(L['sync'])
+        st.rerun()
 
 def run_stack():
     inject_vorteza_stack_ui()
@@ -270,11 +284,7 @@ def run_stack():
         else: st.info(L['no_data'])
 
     elif app_mode == L['mode_db']:
-        st.markdown(f"### 📦 {L['inventory']}")
-        new_db = st.data_editor(pd.DataFrame(inventory), use_container_width=True, num_rows="dynamic", key="db_edit")
-        if st.button(L['save_db']):
-            db_core_save(new_db.to_dict('records'))
-            st.success(L['sync']); st.rerun()
+        render_database_editor(inventory, L)
 
 if __name__ == "__main__":
     run_stack()
