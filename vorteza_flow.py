@@ -13,6 +13,15 @@ import re
 PATH_CONFIG = os.path.join("data", "config.json")
 PATH_BG = os.path.join("assets", "tlo_hub_2.jpg")
 
+@st.cache_data # <--- Buforowanie tła w pamięci RAM
+def load_vorteza_asset_b64(file_path):
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+        return ""
+    except: return ""
+
 def load_config():
     try:
         if os.path.exists(PATH_CONFIG):
@@ -32,8 +41,6 @@ def save_config(config_data):
         st.error(f"BŁĄD ZAPISU: {e}")
         return False
 
-CONF = load_config()
-
 VEH_MAP = {
     "TIR FTL Mega 13.6m": "FTL", 
     "TIR FTL Standard 13.6m": "FTL",
@@ -47,10 +54,7 @@ VEH_MAP = {
 # 1. UI ENGINE: APEX FLOW CONTRAST FIX
 # ==============================================================================
 def inject_vorteza_flow_ui():
-    bg_data = ""
-    if os.path.exists(PATH_BG):
-        with open(PATH_BG, "rb") as f:
-            bg_data = base64.b64encode(f.read()).decode()
+    bg_data = load_vorteza_asset_b64(PATH_BG)
     
     st.markdown(f"""
         <style>
@@ -92,13 +96,14 @@ def inject_vorteza_flow_ui():
 # ==============================================================================
 # 2. MODUŁ ANALIZY FINANSOWEJ (TMS)
 # ==============================================================================
-def show_financial_analysis():
+@st.fragment # <--- Fragment! Zmiany suwaków nie przeładowują całej apki
+def show_financial_analysis(CONF):
     with st.sidebar:
         st.markdown("### 🛠️ KONFIGURACJA")
         tryb_biznesowy = st.radio("MODEL ROZLICZEŃ", ["🚛 WŁASNY TABOR", "🤝 SPEDYCJA (PODWYKONAWCA)"])
         st.divider()
         
-        eur_rate = st.number_input("KURS EUR/PLN", value=CONF.get("EURO_RATE", 4.30), step=0.01)
+        eur_rate = st.number_input("KURS EUR/PLN", value=float(CONF.get("EURO_RATE", 4.30)), step=0.01)
         view_curr = st.radio("POKAZUJ WYNIKI W:", ["PLN", "EUR"], horizontal=True)
         st.divider()
 
@@ -213,7 +218,8 @@ def show_financial_analysis():
 # ==============================================================================
 # 3. MODUŁ EDYTORA TRAS (ROUTE MASTER)
 # ==============================================================================
-def show_route_editor():
+@st.fragment # <--- Fragment! Zmiany w tabeli nie resetują widoku
+def show_route_editor(CONF):
     st.markdown("### 🗺️ ZARZĄDZANIE BAZĄ TRAS")
     st.write("Edytuj kilometry i opłaty drogowe bezpośrednio w tabeli. Kliknij 'Zapisz', aby zaktualizować config.json.")
     
@@ -250,6 +256,7 @@ def run_flow():
     inject_vorteza_flow_ui()
     st.markdown(f"<h2 style='color:#B58863; letter-spacing:10px;'>VORTEZA FLOW | FINANSE</h2>", unsafe_allow_html=True)
     
+    CONF = load_config()
     if not CONF:
         st.error("Błąd: Plik konfiguracyjny config.json nie został załadowany.")
         return
@@ -260,9 +267,9 @@ def run_flow():
         st.divider()
 
     if app_mode == "🛰️ ANALIZA RENTOWNOŚCI":
-        show_financial_analysis()
+        show_financial_analysis(CONF)
     else:
-        show_route_editor()
+        show_route_editor(CONF)
 
 if __name__ == "__main__":
     run_flow()
