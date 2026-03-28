@@ -2,11 +2,25 @@
 import streamlit as st
 import json
 import base64
-import gspread
 import pandas as pd
 import os
 from datetime import datetime
-from google.oauth2.service_account import Credentials
+
+# =========================================================
+# 2. SILNIK GOOGLE SHEETS (ZOPTYMALIZOWANY)
+# =========================================================
+# Importujemy współdzielone połączenie z huba
+try:
+    from vorteza_hub import get_gspread_client
+except ImportError:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    @st.cache_resource
+    def get_gspread_client():
+        scope = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
+        credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
+        return gspread.authorize(credentials)
 
 # =========================================================
 # 1. KONFIGURACJA ŚCIEŻEK I ZASOBÓW
@@ -20,6 +34,7 @@ UPLOAD_DIR = os.path.join("data", "uploads")
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
+@st.cache_data
 def load_vorteza_asset_b64(file_path):
     try:
         if os.path.exists(file_path):
@@ -34,15 +49,7 @@ def load_checklist_local():
             return json.load(f)
     return None
 
-# =========================================================
-# 2. SILNIK GOOGLE SHEETS
-# =========================================================
-def get_gspread_client():
-    scope = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
-    credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
-    return gspread.authorize(credentials)
-
+@st.cache_data(ttl=60)
 def load_sheet_data(worksheet_name):
     try:
         client = get_gspread_client()
@@ -56,6 +63,7 @@ def save_to_sheet(worksheet_name, row_data):
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
         sheet.append_row(row_data)
+        load_sheet_data.clear() # Czyścimy tylko cache bazy
         return True
     except: return False
 
@@ -67,6 +75,7 @@ def update_carrier_status(nip, new_status):
         for i, row in enumerate(records):
             if str(row.get('NIP')) == str(nip):
                 sheet.update_cell(i + 2, 8, new_status)
+                load_sheet_data.clear()
                 return True
         return False
     except: return False
@@ -82,6 +91,7 @@ def update_driver_order(order_id, new_status, file_name=""):
                 sheet.update_cell(row_idx, 2, new_status) 
                 if file_name:
                     sheet.update_cell(row_idx, 20, str(file_name)) 
+                load_sheet_data.clear()
                 return True
         return False
     except Exception as e:
@@ -124,7 +134,171 @@ def apply_base_theme():
     """, unsafe_allow_html=True)
 
 # =========================================================
-# 4. GŁÓWNA FUNKCJA MODUŁU
+# 4. FRAGMENTY (Brak efektu mgły przy formularzach)
+# =========================================================
+@st.fragment
+def driver_inspection_fragment(data_gh, current_user):
+    st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU")
+    with st.form("driver_form", clear_on_submit=False):
+        col1, col2 = st.columns(2)
+        with col1: r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
+        with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", min_value=0, step=1)
+        
+        st.info("Zaznacz stan każdego elementu poniżej. System nie pozwoli na wysłanie raportu, jeśli pominiesz jakikolwiek punkt.")
+        
+        check_results = {}
+        if data_gh and "lista_kontrolna" in data_gh:
+            st.markdown("---")
+            for kat, punkty in data_gh["lista_kontrolna"].items():
+                with st.expander(kat.upper(), expanded=False):
+                    for pt in punkty:
+                        check_results[pt] = st.radio(
+                            pt, 
+                            ["✅ OK", "⚠️ UWAGA (Drobna usterka)", "🛑 KRYTYCZNE (Uziemienie)"], 
+                            index=None, 
+                            horizontal=True, 
+                            key=f"f_{pt}"
+                        )
+        
+        st.markdown("---")
+        st.markdown("#### 📸 DOKUMENTACJA USTEREK")
+        u_notes = st.text_area("Jeśli w którymś punkcie zaznaczyłeś 'UWAGA' lub 'KRYTYCZNE', krótko opisz problem poniżej:")
+        uploaded_files = st.file_uploader("Wgraj zdjęcia usterek (Aparat w telefonie / Galeria)", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
+        
+        st.markdown("---")
+        deklaracja = st.checkbox("Oświadczam, że dokonałem fizycznych oględzin pojazdu. Mam świadomość odpowiedzialności za przekazanie nieprawdziwych danych.")
+        
+        submitted = st.form_submit_button("🚀 ZATWIERDŹ I WYŚLIJ RAPORT", use_container_width=True)
+        
+        if submitted:
+            brakujace_punkty = [pt for pt, val in check_results.items() if val is None]
+            
+            if not r_plate:
+                st.error("Wpisz numer rejestracyjny pojazdu!")
+            elif k_odo <= 0:
+                st.error("Podaj prawidłowy, aktualny przebieg w kilometrach!")
+            elif len(brakujace_punkty) > 0:
+                st.error(f"Nie sprawdziłeś {len(brakujace_punkty)} punktów! Rozwiń listy wyżej i zaznacz brakujące opcje.")
+            elif not deklaracja:
+                st.error("Musisz zaznaczyć oświadczenie o dokonaniu oględzin na samym dole formularza!")
+            else:
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+                
+                saved_files = []
+                if uploaded_files:
+                    for uf in uploaded_files:
+                        fname = f"INSP_{r_plate}_{datetime.now().strftime('%H%M%S')}_{uf.name}"
+                        with open(os.path.join(UPLOAD_DIR, fname), "wb") as f:
+                            f.write(uf.getbuffer())
+                        saved_files.append(fname)
+
+                krytyczne = [pt for pt, val in check_results.items() if "KRYTYCZNE" in val]
+                uwagi = [pt for pt, val in check_results.items() if "UWAGA" in val]
+
+                if krytyczne:
+                    status = "ALERT: KRYTYCZNY"
+                elif uwagi:
+                    status = "UWAGA: WYMAGA PRZEGLĄDU"
+                else:
+                    status = "NOMINAL (OK)"
+
+                final_notes = u_notes
+                if saved_files:
+                    final_notes += f" | ZDJĘCIA: {', '.join(saved_files)}"
+
+                if krytyczne or uwagi:
+                    final_notes = f"Zgłoszono: {len(krytyczne)} kryt., {len(uwagi)} uwag. " + final_notes
+
+                if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, final_notes]):
+                    st.success(f"Raport wysłany pomyślnie! Wykryty status pojazdu: {status}")
+                    st.balloons()
+                else:
+                    st.error("Błąd zapisu w Google Sheets.")
+
+@st.fragment
+def driver_tasks_fragment():
+    st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
+    st.info("Podaj numer rejestracyjny swojego pojazdu, aby pobrać przypisane zlecenia z centrali.")
+    
+    pojazd_kierowcy = st.text_input("TWÓJ POJAZD (REJESTRACJA)", value=st.session_state.get("last_plate", "")).upper()
+    
+    if pojazd_kierowcy:
+        st.session_state.last_plate = pojazd_kierowcy
+        st.markdown("---")
+        
+        with st.spinner("Synchronizacja z serwerem logistycznym..."):
+            df_zlecenia = load_sheet_data("Zlecenia")
+        
+        if df_zlecenia.empty:
+            st.error("Błąd połączenia z bazą zleceń.")
+        else:
+            df_kierowcy = df_zlecenia[
+                (df_zlecenia['Pojazd_Kierowca'].astype(str).str.upper() == pojazd_kierowcy) & 
+                (df_zlecenia['Status'].isin(['ZAPLANOWANE', 'W TRASIE']))
+            ]
+            
+            if df_kierowcy.empty:
+                st.success(f"Brak aktywnych zleceń w systemie dla pojazdu: {pojazd_kierowcy}. Odpoczywaj!")
+            else:
+                st.markdown(f"**Odnaleziono zlecenia dla {pojazd_kierowcy}:**")
+                for _, row in df_kierowcy.iterrows():
+                    o_id = row.get('ID', 'N/A')
+                    status = row.get('Status')
+                    
+                    ladunek_str = ""
+                    try:
+                        lad_list = json.loads(str(row.get('Ladunek', '[]')))
+                        ladunek_str = " | ".join([f"{item['ILOSC']}x {item['SKU']}" for item in lad_list])
+                    except: ladunek_str = "Brak szczegółów ładunku."
+                    
+                    card_border = "#F1C40F" if status == 'ZAPLANOWANE' else "#E67E22"
+                    
+                    st.markdown(f"""
+                        <div style="background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 5px solid {card_border}; padding: 15px; margin-bottom: 10px; border-radius: 6px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                                <span style="color:#B58863; font-weight:bold; font-size:1.1rem;">ZLECENIE: {o_id}</span>
+                                <span style="color:{card_border}; font-weight:bold; font-family:'JetBrains Mono';">STATUS: {status}</span>
+                            </div>
+                            <div style="color:#FFFFFF; font-size:1.2rem; font-weight:bold; margin-bottom: 10px;">
+                                📍 {row.get('Start', '-')} ➔ 🏁 {row.get('Koniec', '-')}
+                            </div>
+                            <div style="color:#AAAAAA; font-size:0.9rem; line-height:1.6;">
+                                <b>Klient (Rozładunek):</b> {row.get('Klient', '-')}<br>
+                                <b>Daty:</b> {row.get('DataZal', '-')} do {row.get('DataRozl', '-')}<br>
+                                <b>Ładunek:</b> <span style="color:#FFF;">{ladunek_str}</span><br>
+                                <b>Uwagi:</b> <span style="color:#FF4B4B;">{row.get('Uwagi', 'Brak')}</span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div class='btn-action'>", unsafe_allow_html=True)
+                    
+                    if status == 'ZAPLANOWANE':
+                        if st.button(f"▶️ ROZPOCZNIJ TRASĘ (START)", key=f"start_{o_id}", use_container_width=True):
+                            if update_driver_order(o_id, "W TRASIE"):
+                                st.success("Status zaktualizowany! Trasa rozpoczęta."); st.rerun(scope="fragment")
+                            else: st.error("Błąd połączenia.")
+                            
+                    elif status == 'W TRASIE':
+                        with st.form(f"end_form_{o_id}"):
+                            st.info("Gdy dotrzesz na miejsce i rozładujesz towar, wgraj zdjęcie dokumentu i zakończ trasę.")
+                            cmr_file = st.file_uploader("Wgraj zdjęcie CMR (Opcjonalnie)", type=["pdf", "jpg", "png", "jpeg"], key=f"cmr_{o_id}")
+                            
+                            if st.form_submit_button("🏁 ZGŁOŚ ROZŁADUNEK (KONIEC)", use_container_width=True):
+                                saved_filename = ""
+                                if cmr_file is not None:
+                                    saved_filename = f"CMR_{o_id}_{cmr_file.name}"
+                                    with open(os.path.join(UPLOAD_DIR, saved_filename), "wb") as f:
+                                        f.write(cmr_file.getbuffer())
+                                        
+                                if update_driver_order(o_id, "ZAKOŃCZONE", saved_filename):
+                                    st.success("Rozładunek zgłoszony! Zlecenie zakończone."); st.rerun(scope="fragment")
+                                else: st.error("Błąd połączenia.")
+                                
+                    st.markdown("</div><br>", unsafe_allow_html=True)
+
+# =========================================================
+# 5. LOGIKA APLIKACJI
 # =========================================================
 def run_base():
     apply_base_theme()
@@ -231,166 +405,10 @@ def run_base():
     # WIDOKI DLA KIEROWCY
     # =========================================================
     elif mode == "📋 KARTA DROGOWA (INSPEKCJA)":
-        st.markdown("### 🛠️ KARTA KONTROLNA POJAZDU")
-        data_gh = load_checklist_local()
-        
-        with st.form("driver_form", clear_on_submit=False):
-            col1, col2 = st.columns(2)
-            with col1: r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
-            with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", min_value=0, step=1)
-            
-            st.info("Zaznacz stan każdego elementu poniżej. System nie pozwoli na wysłanie raportu, jeśli pominiesz jakikolwiek punkt.")
-            
-            check_results = {}
-            if data_gh and "lista_kontrolna" in data_gh:
-                st.markdown("---")
-                for kat, punkty in data_gh["lista_kontrolna"].items():
-                    # --- POWRÓT ZWIJANYCH LIST (EXPANDERÓW) ---
-                    with st.expander(kat.upper(), expanded=False):
-                        for pt in punkty:
-                            check_results[pt] = st.radio(
-                                pt, 
-                                ["✅ OK", "⚠️ UWAGA (Drobna usterka)", "🛑 KRYTYCZNE (Uziemienie)"], 
-                                index=None, 
-                                horizontal=True, 
-                                key=f"f_{pt}"
-                            )
-            
-            st.markdown("---")
-            st.markdown("#### 📸 DOKUMENTACJA USTEREK")
-            u_notes = st.text_area("Jeśli w którymś punkcie zaznaczyłeś 'UWAGA' lub 'KRYTYCZNE', krótko opisz problem poniżej:")
-            uploaded_files = st.file_uploader("Wgraj zdjęcia usterek (Aparat w telefonie / Galeria)", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
-            
-            st.markdown("---")
-            deklaracja = st.checkbox("Oświadczam, że dokonałem fizycznych oględzin pojazdu. Mam świadomość odpowiedzialności za przekazanie nieprawdziwych danych.")
-            
-            submitted = st.form_submit_button("🚀 ZATWIERDŹ I WYŚLIJ RAPORT", use_container_width=True)
-            
-            if submitted:
-                brakujace_punkty = [pt for pt, val in check_results.items() if val is None]
-                
-                if not r_plate:
-                    st.error("Wpisz numer rejestracyjny pojazdu!")
-                elif k_odo <= 0:
-                    st.error("Podaj prawidłowy, aktualny przebieg w kilometrach!")
-                elif len(brakujace_punkty) > 0:
-                    st.error(f"Nie sprawdziłeś {len(brakujace_punkty)} punktów! Rozwiń listy wyżej i zaznacz brakujące opcje (podświetlone na czerwono).")
-                elif not deklaracja:
-                    st.error("Musisz zaznaczyć oświadczenie o dokonaniu oględzin na samym dole formularza!")
-                else:
-                    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-                    
-                    saved_files = []
-                    if uploaded_files:
-                        for uf in uploaded_files:
-                            fname = f"INSP_{r_plate}_{datetime.now().strftime('%H%M%S')}_{uf.name}"
-                            with open(os.path.join(UPLOAD_DIR, fname), "wb") as f:
-                                f.write(uf.getbuffer())
-                            saved_files.append(fname)
-
-                    krytyczne = [pt for pt, val in check_results.items() if "KRYTYCZNE" in val]
-                    uwagi = [pt for pt, val in check_results.items() if "UWAGA" in val]
-
-                    if krytyczne:
-                        status = "ALERT: KRYTYCZNY"
-                    elif uwagi:
-                        status = "UWAGA: WYMAGA PRZEGLĄDU"
-                    else:
-                        status = "NOMINAL (OK)"
-
-                    final_notes = u_notes
-                    if saved_files:
-                        final_notes += f" | ZDJĘCIA: {', '.join(saved_files)}"
-
-                    if krytyczne or uwagi:
-                        final_notes = f"Zgłoszono: {len(krytyczne)} kryt., {len(uwagi)} uwag. " + final_notes
-
-                    if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, final_notes]):
-                        st.success(f"Raport wysłany pomyślnie! Wykryty status pojazdu: {status}")
-                        st.balloons()
-                    else:
-                        st.error("Błąd zapisu w Google Sheets.")
+        driver_inspection_fragment(load_checklist_local(), current_user)
 
     elif mode == "🚚 MOJE TRASY (ZADANIA)":
-        st.markdown("### 🚚 LISTA ZADAŃ I TRAS KIEROWCY")
-        st.info("Podaj numer rejestracyjny swojego pojazdu, aby pobrać przypisane zlecenia z centrali.")
-        
-        pojazd_kierowcy = st.text_input("TWÓJ POJAZD (REJESTRACJA)", value=st.session_state.get("last_plate", "")).upper()
-        
-        if pojazd_kierowcy:
-            st.session_state.last_plate = pojazd_kierowcy
-            st.markdown("---")
-            
-            with st.spinner("Synchronizacja z serwerem logistycznym..."):
-                df_zlecenia = load_sheet_data("Zlecenia")
-            
-            if df_zlecenia.empty:
-                st.error("Błąd połączenia z bazą zleceń.")
-            else:
-                df_kierowcy = df_zlecenia[
-                    (df_zlecenia['Pojazd_Kierowca'].astype(str).str.upper() == pojazd_kierowcy) & 
-                    (df_zlecenia['Status'].isin(['ZAPLANOWANE', 'W TRASIE']))
-                ]
-                
-                if df_kierowcy.empty:
-                    st.success(f"Brak aktywnych zleceń w systemie dla pojazdu: {pojazd_kierowcy}. Odpoczywaj!")
-                else:
-                    st.markdown(f"**Odnaleziono zlecenia dla {pojazd_kierowcy}:**")
-                    for _, row in df_kierowcy.iterrows():
-                        o_id = row.get('ID', 'N/A')
-                        status = row.get('Status')
-                        
-                        ladunek_str = ""
-                        try:
-                            lad_list = json.loads(str(row.get('Ladunek', '[]')))
-                            ladunek_str = " | ".join([f"{item['ILOSC']}x {item['SKU']}" for item in lad_list])
-                        except: ladunek_str = "Brak szczegółów ładunku."
-                        
-                        card_border = "#F1C40F" if status == 'ZAPLANOWANE' else "#E67E22"
-                        
-                        st.markdown(f"""
-                            <div style="background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 5px solid {card_border}; padding: 15px; margin-bottom: 10px; border-radius: 6px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
-                                    <span style="color:#B58863; font-weight:bold; font-size:1.1rem;">ZLECENIE: {o_id}</span>
-                                    <span style="color:{card_border}; font-weight:bold; font-family:'JetBrains Mono';">STATUS: {status}</span>
-                                </div>
-                                <div style="color:#FFFFFF; font-size:1.2rem; font-weight:bold; margin-bottom: 10px;">
-                                    📍 {row.get('Start', '-')} ➔ 🏁 {row.get('Koniec', '-')}
-                                </div>
-                                <div style="color:#AAAAAA; font-size:0.9rem; line-height:1.6;">
-                                    <b>Klient (Rozładunek):</b> {row.get('Klient', '-')}<br>
-                                    <b>Daty:</b> {row.get('DataZal', '-')} do {row.get('DataRozl', '-')}<br>
-                                    <b>Ładunek:</b> <span style="color:#FFF;">{ladunek_str}</span><br>
-                                    <b>Uwagi:</b> <span style="color:#FF4B4B;">{row.get('Uwagi', 'Brak')}</span>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        st.markdown("<div class='btn-action'>", unsafe_allow_html=True)
-                        
-                        if status == 'ZAPLANOWANE':
-                            if st.button(f"▶️ ROZPOCZNIJ TRASĘ (START)", key=f"start_{o_id}", use_container_width=True):
-                                if update_driver_order(o_id, "W TRASIE"):
-                                    st.success("Status zaktualizowany! Trasa rozpoczęta."); st.rerun()
-                                else: st.error("Błąd połączenia.")
-                                
-                        elif status == 'W TRASIE':
-                            with st.form(f"end_form_{o_id}"):
-                                st.info("Gdy dotrzesz na miejsce i rozładujesz towar, wgraj zdjęcie dokumentu i zakończ trasę.")
-                                cmr_file = st.file_uploader("Wgraj zdjęcie CMR (Opcjonalnie)", type=["pdf", "jpg", "png", "jpeg"], key=f"cmr_{o_id}")
-                                
-                                if st.form_submit_button("🏁 ZGŁOŚ ROZŁADUNEK (KONIEC)", use_container_width=True):
-                                    saved_filename = ""
-                                    if cmr_file is not None:
-                                        saved_filename = f"CMR_{o_id}_{cmr_file.name}"
-                                        with open(os.path.join(UPLOAD_DIR, saved_filename), "wb") as f:
-                                            f.write(cmr_file.getbuffer())
-                                            
-                                    if update_driver_order(o_id, "ZAKOŃCZONE", saved_filename):
-                                        st.success("Rozładunek zgłoszony! Zlecenie zakończone."); st.rerun()
-                                    else: st.error("Błąd połączenia.")
-                                    
-                        st.markdown("</div><br>", unsafe_allow_html=True)
+        driver_tasks_fragment()
 
 if __name__ == "__main__":
     run_base()
