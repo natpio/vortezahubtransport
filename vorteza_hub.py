@@ -24,7 +24,6 @@ SHEET_ID = "1Arq4WTFcvbvH7JkMEMWpWkGjaN44J4UpgJ2T9lKQLn8"
 
 @st.cache_resource
 def get_gspread_client():
-    """Tworzy i cache'uje połączenie z Google Sheets dla HUB-a na całą sesję."""
     try:
         creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
         credentials = Credentials.from_service_account_info(
@@ -57,27 +56,23 @@ def get_dashboard_stats():
     except: pass
     return stats
 
-# --- 3. SILNIK AUTORYZACJI Z GOOGLE SHEETS (IAM) ---
+# --- 3. SILNIK AUTORYZACJI Z GOOGLE SHEETS ---
 def authenticate_user(username, password):
     if username.strip().upper() == "MASTER" and password == st.secrets.get("password", ""):
         return "ADMINISTRATOR / SZEF"
         
     client = get_gspread_client()
-    if not client:
-        return None
+    if not client: return None
 
     try:
         sheet = client.open_by_key(SHEET_ID).worksheet("Uzytkownicy")
         records = sheet.get_all_records()
-        
         for row in records:
             if str(row.get('Login', '')).strip().lower() == username.strip().lower():
                 if str(row.get('Haslo', '')).strip() == password.strip():
                     status = str(row.get('Status', '')).strip().upper()
-                    if status == "AKTYWNY":
-                        return str(row.get('Rola', ''))
-                    else:
-                        return "BLOCKED"
+                    if status == "AKTYWNY": return str(row.get('Rola', ''))
+                    else: return "BLOCKED"
         return None
     except Exception as e:
         st.error(f"Błąd autoryzacji bazy: {e}")
@@ -105,6 +100,31 @@ def inject_hub_theme():
 
 def navigate_to(page_name): st.session_state.active_module = page_name
 
+# --- NOWOŚĆ: NASŁUCHIWACZ POWIADOMIEŃ (Działa w tle co 10 sek) ---
+@st.fragment(run_every="10s")
+def live_notification_listener():
+    path = os.path.join("data", "live_notif.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                notifs = json.load(f)
+            
+            if "last_notif_count" not in st.session_state:
+                st.session_state.last_notif_count = len(notifs)
+            
+            current_count = len(notifs)
+            if current_count > st.session_state.last_notif_count:
+                new_notifs_count = current_count - st.session_state.last_notif_count
+                
+                for i in range(new_notifs_count):
+                    n = notifs[st.session_state.last_notif_count + i]
+                    # To spowoduje wysunięcie powiadomienia w rogu ekranu!
+                    st.toast(f"**ALARM FLOTY ({n['time']})**\n\n{n['msg']}", icon="🔔")
+                
+                st.session_state.last_notif_count = current_count
+        except: pass
+
+
 # --- 5. GŁÓWNA LOGIKA HUB-A ---
 def main_hub():
     inject_hub_theme()
@@ -114,7 +134,6 @@ def main_hub():
     if "role" not in st.session_state: st.session_state.role = "BRAK"
     if "active_module" not in st.session_state: st.session_state.active_module = "PULPIT (DASHBOARD)"
 
-    # --- EKRAN LOGOWANIA ---
     if not st.session_state.global_auth:
         _, col, _ = st.columns([0.8, 2, 0.8])
         with col:
@@ -130,14 +149,11 @@ def main_hub():
                 if st.form_submit_button("ZALOGUJ DO SYSTEMU"):
                     if user_input and pwd_input:
                         role = authenticate_user(user_input, pwd_input)
-                        
-                        if role == "BLOCKED":
-                            st.error("KONTO ZABLOKOWANE. Skontaktuj się z administratorem.")
+                        if role == "BLOCKED": st.error("KONTO ZABLOKOWANE. Skontaktuj się z administratorem.")
                         elif role:
                             st.session_state.global_auth = True
                             st.session_state.username = user_input.upper()
                             st.session_state.role = role
-                            
                             if role == "KIEROWCA": st.session_state.active_module = "FLOTA (BASE)"
                             elif role == "ADMINISTRATOR / SZEF": st.session_state.active_module = "RAPORTY (ADMIN)"
                             else: st.session_state.active_module = "PULPIT (DASHBOARD)"
@@ -146,7 +162,6 @@ def main_hub():
                     else: st.warning("Wpisz login i hasło.")
         return
 
-    # --- UKRYCIE SIDEBARU NA PULPICIE GŁÓWNYM ---
     if st.session_state.active_module == "PULPIT (DASHBOARD)":
         st.markdown("""<style>[data-testid="collapsedControl"] { display: none !important; } section[data-testid="stSidebar"] { display: none !important; }</style>""", unsafe_allow_html=True)
     else:
@@ -158,7 +173,6 @@ def main_hub():
             st.markdown("<div style='text-align:center;'><span style='color: #00FF41; font-family: JetBrains Mono; font-size: 0.8rem;'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
             st.divider()
             
-            # --- NAWIGACJA ZALEŻNA OD ROLI ---
             if st.session_state.role == "KIEROWCA":
                 st.markdown("### PANEL KIEROWCY")
                 st.button("TERMINAL MOBILNY (BASE)", key="sb_nav_base_driver", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
@@ -200,6 +214,10 @@ def main_hub():
                 st.session_state.username = "UNAUTHORIZED"
                 st.session_state.role = "BRAK"
                 st.rerun()
+
+    # --- URUCHOMIENIE NASŁUCHIWACZA DLA SPEDYTORÓW ---
+    if st.session_state.global_auth and st.session_state.role != "KIEROWCA":
+        live_notification_listener()
 
     # --- RENDEROWANIE MODUŁÓW ---
     if st.session_state.active_module == "PULPIT (DASHBOARD)" and st.session_state.role != "KIEROWCA":
