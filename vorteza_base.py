@@ -5,22 +5,8 @@ import base64
 import pandas as pd
 import os
 from datetime import datetime
-
-# =========================================================
-# 2. SILNIK GOOGLE SHEETS (ZOPTYMALIZOWANY)
-# =========================================================
-# Importujemy współdzielone połączenie z huba
-try:
-    from vorteza_hub import get_gspread_client
-except ImportError:
-    import gspread
-    from google.oauth2.service_account import Credentials
-    @st.cache_resource
-    def get_gspread_client():
-        scope = ["https://www.googleapis.com/auth/spreadsheets"]
-        creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
-        credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
-        return gspread.authorize(credentials)
+import gspread
+from google.oauth2.service_account import Credentials
 
 # =========================================================
 # 1. KONFIGURACJA ŚCIEŻEK I ZASOBÓW
@@ -33,6 +19,20 @@ UPLOAD_DIR = os.path.join("data", "uploads")
 # Upewniamy się, że folder na skany CMR istnieje
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
+
+# --- NOWOŚĆ: FUNKCJA WYSYŁAJĄCA POWIADOMIENIE DO SPEDYTORÓW ---
+def notify_dispatcher(message):
+    path = os.path.join("data", "live_notif.json")
+    try:
+        notifs = []
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                notifs = json.load(f)
+        notifs.append({"time": datetime.now().strftime("%H:%M:%S"), "msg": message})
+        notifs = notifs[-20:] # Trzymamy w pliku tylko 20 ostatnich zdarzeń
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(notifs, f, ensure_ascii=False)
+    except: pass
 
 @st.cache_data
 def load_vorteza_asset_b64(file_path):
@@ -49,6 +49,16 @@ def load_checklist_local():
             return json.load(f)
     return None
 
+# =========================================================
+# 2. SILNIK GOOGLE SHEETS (NIEZALEŻNY, CACHE'OWANY)
+# =========================================================
+@st.cache_resource
+def get_gspread_client():
+    scope = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds_info = st.secrets["GCP_SERVICE_ACCOUNT"]
+    credentials = Credentials.from_service_account_info(creds_info, scopes=scope)
+    return gspread.authorize(credentials)
+
 @st.cache_data(ttl=60)
 def load_sheet_data(worksheet_name):
     try:
@@ -63,7 +73,7 @@ def save_to_sheet(worksheet_name, row_data):
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).worksheet(worksheet_name)
         sheet.append_row(row_data)
-        load_sheet_data.clear() # Czyścimy tylko cache bazy
+        load_sheet_data.clear()
         return True
     except: return False
 
@@ -125,7 +135,6 @@ def apply_base_theme():
         div[data-testid="stButton"] button:hover {{ background: #B58863 !important; color: #000 !important; }}
         .btn-action div[data-testid="stButton"] button {{ background: rgba(181, 136, 99, 0.2) !important; border: 1px solid #B58863 !important; }}
         
-        /* STYLIZACJA KIEROWCY */
         div[data-testid="stRadio"] label p {{ color: #B58863 !important; font-weight: bold !important; font-size: 0.95rem !important; letter-spacing: 0.5px; }}
         div[data-testid="stCheckbox"] label p {{ color: #B58863 !important; font-size: 0.95rem !important; font-weight: bold !important; }}
         div[data-testid="stWidgetLabel"] p {{ color: #B58863 !important; font-weight: bold !important; letter-spacing: 1px; }}
@@ -134,7 +143,7 @@ def apply_base_theme():
     """, unsafe_allow_html=True)
 
 # =========================================================
-# 4. FRAGMENTY (Brak efektu mgły przy formularzach)
+# 4. FRAGMENTY DLA KIEROWCY
 # =========================================================
 @st.fragment
 def driver_inspection_fragment(data_gh, current_user):
@@ -144,7 +153,7 @@ def driver_inspection_fragment(data_gh, current_user):
         with col1: r_plate = st.text_input("NUMER REJESTRACYJNY POJAZDU (np. PO12345)").upper()
         with col2: k_odo = st.number_input("AKTUALNY PRZEBIEG (KM)", min_value=0, step=1)
         
-        st.info("Zaznacz stan każdego elementu poniżej. System nie pozwoli na wysłanie raportu, jeśli pominiesz jakikolwiek punkt.")
+        st.info("Zaznacz stan każdego elementu poniżej.")
         
         check_results = {}
         if data_gh and "lista_kontrolna" in data_gh:
@@ -152,68 +161,40 @@ def driver_inspection_fragment(data_gh, current_user):
             for kat, punkty in data_gh["lista_kontrolna"].items():
                 with st.expander(kat.upper(), expanded=False):
                     for pt in punkty:
-                        check_results[pt] = st.radio(
-                            pt, 
-                            ["✅ OK", "⚠️ UWAGA (Drobna usterka)", "🛑 KRYTYCZNE (Uziemienie)"], 
-                            index=None, 
-                            horizontal=True, 
-                            key=f"f_{pt}"
-                        )
+                        check_results[pt] = st.radio(pt, ["✅ OK", "⚠️ UWAGA (Drobna usterka)", "🛑 KRYTYCZNE (Uziemienie)"], index=None, horizontal=True, key=f"f_{pt}")
         
         st.markdown("---")
-        st.markdown("#### 📸 DOKUMENTACJA USTEREK")
-        u_notes = st.text_area("Jeśli w którymś punkcie zaznaczyłeś 'UWAGA' lub 'KRYTYCZNE', krótko opisz problem poniżej:")
-        uploaded_files = st.file_uploader("Wgraj zdjęcia usterek (Aparat w telefonie / Galeria)", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
+        u_notes = st.text_area("Jeśli zaznaczyłeś 'UWAGA' lub 'KRYTYCZNE', opisz problem:")
+        uploaded_files = st.file_uploader("Wgraj zdjęcia usterek", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
+        deklaracja = st.checkbox("Oświadczam, że dokonałem fizycznych oględzin pojazdu.")
         
-        st.markdown("---")
-        deklaracja = st.checkbox("Oświadczam, że dokonałem fizycznych oględzin pojazdu. Mam świadomość odpowiedzialności za przekazanie nieprawdziwych danych.")
-        
-        submitted = st.form_submit_button("🚀 ZATWIERDŹ I WYŚLIJ RAPORT", use_container_width=True)
-        
-        if submitted:
+        if st.form_submit_button("🚀 ZATWIERDŹ I WYŚLIJ RAPORT", use_container_width=True):
             brakujace_punkty = [pt for pt, val in check_results.items() if val is None]
-            
-            if not r_plate:
-                st.error("Wpisz numer rejestracyjny pojazdu!")
-            elif k_odo <= 0:
-                st.error("Podaj prawidłowy, aktualny przebieg w kilometrach!")
-            elif len(brakujace_punkty) > 0:
-                st.error(f"Nie sprawdziłeś {len(brakujace_punkty)} punktów! Rozwiń listy wyżej i zaznacz brakujące opcje.")
-            elif not deklaracja:
-                st.error("Musisz zaznaczyć oświadczenie o dokonaniu oględzin na samym dole formularza!")
+            if not r_plate: st.error("Wpisz numer rejestracyjny pojazdu!")
+            elif k_odo <= 0: st.error("Podaj prawidłowy przebieg w kilometrach!")
+            elif len(brakujace_punkty) > 0: st.error(f"Nie sprawdziłeś {len(brakujace_punkty)} punktów!")
+            elif not deklaracja: st.error("Zaznacz oświadczenie na dole formularza!")
             else:
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-                
                 saved_files = []
                 if uploaded_files:
                     for uf in uploaded_files:
                         fname = f"INSP_{r_plate}_{datetime.now().strftime('%H%M%S')}_{uf.name}"
-                        with open(os.path.join(UPLOAD_DIR, fname), "wb") as f:
-                            f.write(uf.getbuffer())
+                        with open(os.path.join(UPLOAD_DIR, fname), "wb") as f: f.write(uf.getbuffer())
                         saved_files.append(fname)
 
                 krytyczne = [pt for pt, val in check_results.items() if "KRYTYCZNE" in val]
                 uwagi = [pt for pt, val in check_results.items() if "UWAGA" in val]
 
-                if krytyczne:
-                    status = "ALERT: KRYTYCZNY"
-                elif uwagi:
-                    status = "UWAGA: WYMAGA PRZEGLĄDU"
-                else:
-                    status = "NOMINAL (OK)"
-
+                status = "ALERT: KRYTYCZNY" if krytyczne else "UWAGA: WYMAGA PRZEGLĄDU" if uwagi else "NOMINAL (OK)"
                 final_notes = u_notes
-                if saved_files:
-                    final_notes += f" | ZDJĘCIA: {', '.join(saved_files)}"
-
-                if krytyczne or uwagi:
-                    final_notes = f"Zgłoszono: {len(krytyczne)} kryt., {len(uwagi)} uwag. " + final_notes
+                if saved_files: final_notes += f" | ZDJĘCIA: {', '.join(saved_files)}"
+                if krytyczne or uwagi: final_notes = f"Zgłoszono: {len(krytyczne)} kryt., {len(uwagi)} uwag. " + final_notes
 
                 if save_to_sheet("Flota", [ts, current_user, r_plate, k_odo, status, final_notes]):
                     st.success(f"Raport wysłany pomyślnie! Wykryty status pojazdu: {status}")
                     st.balloons()
-                else:
-                    st.error("Błąd zapisu w Google Sheets.")
+                else: st.error("Błąd zapisu w Google Sheets.")
 
 @st.fragment
 def driver_tasks_fragment():
@@ -245,7 +226,6 @@ def driver_tasks_fragment():
                     o_id = row.get('ID', 'N/A')
                     status = row.get('Status')
                     
-                    ladunek_str = ""
                     try:
                         lad_list = json.loads(str(row.get('Ladunek', '[]')))
                         ladunek_str = " | ".join([f"{item['ILOSC']}x {item['SKU']}" for item in lad_list])
@@ -276,6 +256,7 @@ def driver_tasks_fragment():
                     if status == 'ZAPLANOWANE':
                         if st.button(f"▶️ ROZPOCZNIJ TRASĘ (START)", key=f"start_{o_id}", use_container_width=True):
                             if update_driver_order(o_id, "W TRASIE"):
+                                notify_dispatcher(f"🚚 Pojazd {pojazd_kierowcy} rozpoczął trasę zlecenia {o_id}!")
                                 st.success("Status zaktualizowany! Trasa rozpoczęta."); st.rerun(scope="fragment")
                             else: st.error("Błąd połączenia.")
                             
@@ -292,6 +273,7 @@ def driver_tasks_fragment():
                                         f.write(cmr_file.getbuffer())
                                         
                                 if update_driver_order(o_id, "ZAKOŃCZONE", saved_filename):
+                                    notify_dispatcher(f"🏁 Pojazd {pojazd_kierowcy} zakończył rozładunek zlecenia {o_id}!")
                                     st.success("Rozładunek zgłoszony! Zlecenie zakończone."); st.rerun(scope="fragment")
                                 else: st.error("Błąd połączenia.")
                                 
@@ -309,22 +291,12 @@ def run_base():
 
     with st.sidebar:
         st.markdown("### 🎛️ PANEL STEROWANIA")
-        
         if current_role == "KIEROWCA":
-            mode = st.radio("WYBIERZ MODUŁ:", [
-                "📋 KARTA DROGOWA (INSPEKCJA)",
-                "🚚 MOJE TRASY (ZADANIA)"
-            ], label_visibility="collapsed")
+            mode = st.radio("WYBIERZ MODUŁ:", ["📋 KARTA DROGOWA (INSPEKCJA)", "🚚 MOJE TRASY (ZADANIA)"], label_visibility="collapsed")
         else:
-            mode = st.radio("WYBIERZ MODUŁ:", [
-                "🤝 BAZA PRZEWOŹNIKÓW", 
-                "🚛 RAPORTY FLOTY (WŁASNEJ)"
-            ], label_visibility="collapsed")
+            mode = st.radio("WYBIERZ MODUŁ:", ["🤝 BAZA PRZEWOŹNIKÓW", "🚛 RAPORTY FLOTY (WŁASNEJ)"], label_visibility="collapsed")
         st.divider()
 
-    # =========================================================
-    # WIDOKI DLA LOGISTYKA / SPEDYTORA
-    # =========================================================
     if mode == "🤝 BAZA PRZEWOŹNIKÓW":
         c1, c2 = st.columns([2, 1])
         with c1: st.markdown("### 📇 REJESTR PODWYKONAWCÓW")
@@ -333,17 +305,17 @@ def run_base():
                 with st.form("new_carrier_form", clear_on_submit=True):
                     nip = st.text_input("NIP")
                     nazwa = st.text_input("NAZWA FIRMY")
-                    kontakt = st.text_input("OSOBA KONTAKTOWA (DYSPOZYTOR)")
+                    kontakt = st.text_input("OSOBA KONTAKTOWA")
                     tel = st.text_input("TELEFON")
                     email = st.text_input("E-MAIL")
                     ocp = st.date_input("OCP WAŻNE DO")
-                    uwagi = st.text_area("UWAGI (np. kierunki, tabor)")
+                    uwagi = st.text_area("UWAGI")
                     if st.form_submit_button("ZAPISZ W BAZIE"):
                         if nip and nazwa:
                             if save_to_sheet("Przewoznicy", [nip, nazwa, kontakt, tel, email, str(ocp), uwagi, "AKTYWNY"]):
-                                st.success("Przewoźnik dodany do bazy!"); st.rerun()
+                                st.success("Dodany!"); st.rerun()
                             else: st.error("Błąd zapisu!")
-                        else: st.error("Wypełnij przynajmniej NIP i Nazwę!")
+                        else: st.error("Wypełnij NIP i Nazwę!")
 
         df_c = load_sheet_data("Przewoznicy")
         if df_c.empty: st.info("Baza przewoźników jest pusta.")
@@ -381,7 +353,7 @@ def run_base():
                 """, unsafe_allow_html=True)
                 
                 if status == "AKTYWNY":
-                    if st.button("🚫 ZABLOKUJ (BRAK OCP)", key=f"blk_{nip_val}"): update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
+                    if st.button("🚫 ZABLOKUJ", key=f"blk_{nip_val}"): update_carrier_status(nip_val, "ZABLOKOWANY"); st.rerun()
                 else:
                     if st.button("✅ ODBLOKUJ", key=f"unb_{nip_val}"): update_carrier_status(nip_val, "AKTYWNY"); st.rerun()
 
@@ -401,9 +373,6 @@ def run_base():
                 </div>
                 """, unsafe_allow_html=True)
 
-    # =========================================================
-    # WIDOKI DLA KIEROWCY
-    # =========================================================
     elif mode == "📋 KARTA DROGOWA (INSPEKCJA)":
         driver_inspection_fragment(load_checklist_local(), current_user)
 
