@@ -128,7 +128,7 @@ def update_full_order(order_id, klient, spedytor, start, koniec, data_z, data_r,
     except: return False
 
 # ==============================================================================
-# 3. INTERFEJS
+# 3. INTERFEJS I STYLIZACJA ANTY-LAG
 # ==============================================================================
 def inject_core_theme():
     bg_data = load_vorteza_asset_b64(PATH_BG)
@@ -141,11 +141,20 @@ def inject_core_theme():
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&family=JetBrains+Mono&display=swap');
             {bg_style}
             
+            /* --- USUNIĘCIE BRANDINGU I BIAŁEGO PASKA --- */
             header {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
             [data-testid="stHeader"] {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
             footer {{ visibility: hidden !important; display: none !important; }}
             .block-container {{ padding-top: 1rem !important; padding-bottom: 1rem !important; margin-top: 0 !important; }}
             
+            /* --- ANTY-LAG: WYŁĄCZENIE MGŁY I SZARZENIA --- */
+            *[data-stale="true"], div[data-stale="true"], button[data-stale="true"] {{
+                opacity: 1 !important;
+                filter: none !important;
+                transition: none !important;
+                pointer-events: auto !important;
+            }}
+
             h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 4px !important; font-weight: 700 !important; }}
             .order-card {{ background: rgba(15, 15, 15, 0.85); border: 1px solid rgba(181, 136, 99, 0.3); border-left: 4px solid #B58863; padding: 15px; margin-bottom: 15px; border-radius: 4px; }}
             .order-card-title {{ color: #FFFFFF; font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; }}
@@ -162,7 +171,7 @@ def inject_core_theme():
     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FRAGMENTY (PRZYSPIESZENIE FORMULARZY I OPTYMALIZACJA)
+# 4. FRAGMENTY (OPTYMALIZACJA WYDAJNOŚCI)
 # ==============================================================================
 @st.fragment
 def ladunek_nowe_zlecenie_fragment(products_data):
@@ -214,7 +223,6 @@ def ladunek_edycja_fragment(products_data):
         else: 
             st.info("Brak ładunku.")
 
-# --- NOWE FRAGMENTY GŁÓWNE DLA FORMULARZY (LIKWIDUJĄ LAGI) ---
 @st.fragment
 def render_nowe_zlecenie(config_data, products_data, current_user):
     st.markdown("### 📝 KREATOR ZLECENIA SPEDYCYJNEGO")
@@ -273,9 +281,8 @@ def render_nowe_zlecenie(config_data, products_data, current_user):
                 st.session_state.core_cart = [] 
                 st.success(f"Zlecenie {order_id} zostało pomyślnie utworzone!")
                 st.balloons()
-                st.rerun() # Przeładowanie po sukcesie by wyczyścić formularz
+                st.rerun() 
             else: st.error("Błąd zapisu w Google Sheets.")
-
 
 @st.fragment
 def render_edycja_zlecenia(df, config_data, products_data, current_user):
@@ -379,9 +386,6 @@ def run_core():
 
     df = load_orders()
 
-    # --------------------------------------------------------------------------
-    # WIDOK 1: KANBAN
-    # --------------------------------------------------------------------------
     if mode == "📊 TABLICA (KANBAN)":
         if df.empty:
             st.info("Brak zleceń w systemie.")
@@ -433,7 +437,6 @@ def run_core():
                             except Exception as e: st.error(f"Błąd ładunku: {e}")
                     elif title == "ZAAKCEPTOWANE":
                         if st.button("↩️ COFNIJ", key=f"cof1_{o_id}"): update_order_status(o_id, "DRAFT (NOWE)"); st.rerun()
-                        st.info("Zaplanuj w SHIPPING LIST")
                     elif title == "ZAPLANOWANE":
                         if st.button("🚚 W TRASĘ", key=f"drg_{o_id}"): update_order_status(o_id, "W TRASIE"); st.rerun()
                         if st.button("↩️ COFNIJ", key=f"cof2_{o_id}"): update_order_status(o_id, "ZAAKCEPTOWANE"); st.rerun()
@@ -441,9 +444,6 @@ def run_core():
                         if st.button("🏁 ZAKOŃCZ ZLECENIE", key=f"kon_{o_id}"): update_order_status(o_id, "ZAKOŃCZONE"); st.rerun()
                         if st.button("↩️ COFNIJ", key=f"cof3_{o_id}"): update_order_status(o_id, "ZAPLANOWANE"); st.rerun()
 
-    # --------------------------------------------------------------------------
-    # WIDOK 2: SHIPPING LIST
-    # --------------------------------------------------------------------------
     elif mode == "🗺️ SHIPPING LIST":
         st.markdown("### 🗺️ SHIPPING LIST (PLANOWANIE I DOŁADUNKI)")
         if df.empty: st.info("Brak danych."); return
@@ -488,30 +488,18 @@ def run_core():
                             for s_id in selected_ids:
                                 if not assign_transport(s_id, trakcja, przewoznik, auto_kierowca.upper()): success = False
                             if success:
-                                st.success("Pomyślnie przypisano transport i zaplanowano trasę!")
-                                st.rerun()
+                                st.success("Pomyślnie przypisano transport!"); st.rerun()
                             else: st.error("Błąd podczas przypisywania!")
 
-    # --------------------------------------------------------------------------
-    # WIDOK 3: KREATOR ZLECENIA (ZOPTYMALIZOWANY)
-    # --------------------------------------------------------------------------
     elif mode == "➕ NOWE ZLECENIE":
         render_nowe_zlecenie(config_data, products_data, current_user)
 
-    # --------------------------------------------------------------------------
-    # WIDOK 4: EDYCJA ZLECENIA (ZOPTYMALIZOWANA)
-    # --------------------------------------------------------------------------
     elif mode == "✏️ EDYCJA ZLECENIA":
-        if df.empty:
-            st.info("Brak zleceń w systemie.")
-        else:
-            render_edycja_zlecenia(df, config_data, products_data, current_user)
+        if df.empty: st.info("Brak zleceń.")
+        else: render_edycja_zlecenia(df, config_data, products_data, current_user)
 
-    # --------------------------------------------------------------------------
-    # WIDOK 5: ROZLICZENIA (BILLING + PDF)
-    # --------------------------------------------------------------------------
     elif mode == "💰 ROZLICZENIA (BILLING)":
-        st.markdown("### 💰 PANEL ROZLICZEŃ, WINDYKACJI I DOKUMENTÓW")
+        st.markdown("### 💰 PANEL ROZLICZEŃ I WINDYKACJI")
         if df.empty: st.info("Brak zleceń."); return
         
         df_billing = df[df['Status'].isin(['ZAKOŃCZONE', 'ZAMKNIĘTE'])]
@@ -521,14 +509,12 @@ def run_core():
             for _, row in df_billing.iterrows():
                 o_id = row.get('ID', 'N/A')
                 inv_no = str(row.get('Faktura', '')).strip()
-                inv_date_str = str(row.get('DataFaktury', '')).strip()
                 try: term_days = int(row.get('TerminDni', 30))
                 except: term_days = 30
                 is_paid = (str(row.get('StatusPlatnosci', 'NIE')).strip().upper() == 'TAK')
                 zalacznik = str(row.get('Zalacznik', ''))
                 
                 badge_html = f"<span style='color:#27AE60;'>✅ OPŁACONA ({inv_no})</span>" if is_paid else "<span style='color:#F1C40F;'>⏳ OCZEKUJE</span>"
-                if zalacznik: badge_html += f" | 📄 PLIK: {zalacznik}"
                 
                 st.markdown(f"""
                     <div class="billing-card">
@@ -544,23 +530,16 @@ def run_core():
                     new_inv_no = c1.text_input("NUMER FAKTURY", value=inv_no)
                     new_term = c2.number_input("TERMIN", value=term_days, step=1)
                     new_is_paid = c3.checkbox("✅ OPŁACONA", value=is_paid)
+                    uploaded_file = c4.file_uploader("Wgraj CMR (PDF/IMG)", type=["pdf", "jpg", "png"])
                     
-                    uploaded_file = c4.file_uploader("Wgraj CMR/Fakturę (PDF/IMG)", type=["pdf", "jpg", "png"])
-                    
-                    if st.form_submit_button("💾 ZAPISZ DANE I PLIK", use_container_width=True):
-                        file_name_to_save = zalacznik
-                        if uploaded_file is not None:
-                            file_name_to_save = f"{o_id}_{uploaded_file.name}"
-                            with open(os.path.join(UPLOAD_DIR, file_name_to_save), "wb") as f:
-                                f.write(uploaded_file.getbuffer())
-                                
-                        status_val = "TAK" if new_is_paid else "NIE"
-                        if update_order_billing(o_id, new_inv_no, datetime.now().strftime("%Y-%m-%d"), new_term, status_val, file_name_to_save):
+                    if st.form_submit_button("💾 ZAPISZ DANE", use_container_width=True):
+                        file_name = zalacznik
+                        if uploaded_file:
+                            file_name = f"{o_id}_{uploaded_file.name}"
+                            with open(os.path.join(UPLOAD_DIR, file_name), "wb") as f: f.write(uploaded_file.getbuffer())
+                        if update_order_billing(o_id, new_inv_no, datetime.now().strftime("%Y-%m-%d"), new_term, "TAK" if new_is_paid else "NIE", file_name):
                             st.success("Zaktualizowano!"); st.rerun()
 
-    # --------------------------------------------------------------------------
-    # WIDOK 6: ARCHIWUM
-    # --------------------------------------------------------------------------
     elif mode == "🗄️ BAZA / ARCHIWUM":
         st.markdown("### 🗄️ REJESTR WSZYSTKICH ZLECEŃ")
         st.dataframe(df, use_container_width=True, hide_index=True)
