@@ -58,7 +58,7 @@ def save_new_order(row_data):
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).worksheet("Zlecenia")
         sheet.append_row(row_data)
-        load_orders.clear() # Czyści tylko cache z danymi ze zleceń, a nie cały cache aplikacji!
+        load_orders.clear() 
         return True
     except: return False
 
@@ -140,6 +140,12 @@ def inject_core_theme():
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&family=JetBrains+Mono&display=swap');
             {bg_style}
+            
+            header {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
+            [data-testid="stHeader"] {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
+            footer {{ visibility: hidden !important; display: none !important; }}
+            .block-container {{ padding-top: 1rem !important; padding-bottom: 1rem !important; margin-top: 0 !important; }}
+            
             h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 4px !important; font-weight: 700 !important; }}
             .order-card {{ background: rgba(15, 15, 15, 0.85); border: 1px solid rgba(181, 136, 99, 0.3); border-left: 4px solid #B58863; padding: 15px; margin-bottom: 15px; border-radius: 4px; }}
             .order-card-title {{ color: #FFFFFF; font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; }}
@@ -156,7 +162,7 @@ def inject_core_theme():
     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FRAGMENTY (PRZYSPIESZENIE FORMULARZY)
+# 4. FRAGMENTY (PRZYSPIESZENIE FORMULARZY I OPTYMALIZACJA)
 # ==============================================================================
 @st.fragment
 def ladunek_nowe_zlecenie_fragment(products_data):
@@ -168,7 +174,7 @@ def ladunek_nowe_zlecenie_fragment(products_data):
         
         if st.button("➕ DODAJ DO LISTY ZLECENIA"):
             st.session_state.core_cart.append({"SKU": wybrane_sku, "ILOSC": ilosc_sku})
-            st.rerun() 
+            st.rerun(scope="fragment") 
         
         st.markdown("---")
         if st.session_state.core_cart:
@@ -176,7 +182,7 @@ def ladunek_nowe_zlecenie_fragment(products_data):
                 st.markdown(f"- **{item['ILOSC']}x** {item['SKU']}")
             if st.button("🗑️ WYCZYŚĆ ŁADUNEK"):
                 st.session_state.core_cart = []
-                st.rerun()
+                st.rerun(scope="fragment")
         else:
             st.info("Brak zadeklarowanego ładunku.")
 
@@ -190,7 +196,7 @@ def ladunek_edycja_fragment(products_data):
         
         if st.button("➕ DODAJ DO ŁADUNKU", key="ed_dodaj"):
             st.session_state.edit_cart.append({"SKU": wybrane_sku, "ILOSC": ilosc_sku})
-            st.rerun()
+            st.rerun(scope="fragment")
         
         st.markdown("---")
         if st.session_state.edit_cart:
@@ -200,14 +206,150 @@ def ladunek_edycja_fragment(products_data):
                 st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                 if col_b.button("❌", key=f"del_ed_{i}"): 
                     st.session_state.edit_cart.pop(i)
-                    st.rerun()
+                    st.rerun(scope="fragment")
                 st.markdown("</div>", unsafe_allow_html=True)
             if st.button("🗑️ WYCZYŚĆ WSZYSTKO", key="ed_clear"): 
                 st.session_state.edit_cart = []
-                st.rerun()
+                st.rerun(scope="fragment")
         else: 
             st.info("Brak ładunku.")
 
+# --- NOWE FRAGMENTY GŁÓWNE DLA FORMULARZY (LIKWIDUJĄ LAGI) ---
+@st.fragment
+def render_nowe_zlecenie(config_data, products_data, current_user):
+    st.markdown("### 📝 KREATOR ZLECENIA SPEDYCYJNEGO")
+    c_left, c_right = st.columns([2, 1])
+    
+    with c_left:
+        with st.container(border=True):
+            st.markdown("#### 1. DANE OPERACYJNE")
+            col1, col2 = st.columns(2)
+            klient = col1.text_input("KLIENT / ZLECENIODAWCA (Kto płaci nam)")
+            trakcja = col2.radio("TYP TRAKCJI (Domyślnie)", ["WŁASNY TABOR", "PODWYKONAWCA (PRZEWOŹNIK)"], horizontal=True)
+            
+            col_p1, col_p2 = st.columns(2)
+            if trakcja == "PODWYKONAWCA (PRZEWOŹNIK)":
+                przewoznik = col_p1.text_input("NAZWA PRZEWOŹNIKA", "DO USTALENIA")
+            else:
+                przewoznik = "VORTEZA FLEET"
+                
+            auto_kierowca = col_p2.text_input("POJAZD (REJ.) I TEL.", "DO USTALENIA")
+
+            st.divider()
+            st.markdown("#### 2. FINANSE")
+            col_f1, col_f2 = st.columns(2)
+            fracht_sprzedaz = col_f1.text_input("FRACHT SPRZEDAŻ (Dla Klienta)", "0")
+            fracht_kupno = col_f2.text_input("FRACHT KUPNO (Koszty)", "0")
+
+            st.divider()
+            st.markdown("#### 3. LOGISTYKA TRASY")
+            miasta_start = list(config_data.get("DISTANCES_AND_MYTO", {}).keys()) if config_data else ["Poznań", "Warszawa"]
+            
+            col3, col4 = st.columns(2)
+            start = col3.selectbox("MIEJSCE ZAŁADUNKU", miasta_start)
+            miasta_cel = list(config_data.get("DISTANCES_AND_MYTO", {}).get(start, {}).keys()) if config_data else []
+            koniec = col4.selectbox("MIEJSCE ROZŁADUNKU", miasta_cel)
+            
+            col5, col6 = st.columns(2)
+            data_z = col5.date_input("DATA ZAŁADUNKU")
+            data_r = col6.date_input("DATA ROZŁADUNKU")
+            
+            uwagi = st.text_area("UWAGI (Awizacja, warunki załadunku)")
+
+    with c_right:
+        ladunek_nowe_zlecenie_fragment(products_data)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("💾 ZAPISZ I UTWÓRZ ZLECENIE", use_container_width=True):
+        if not klient: st.error("Podaj nazwę klienta!")
+        else:
+            now = datetime.now()
+            order_id = f"TMS-{now.strftime('%y')}-{now.strftime('%H%M%S')}"
+            ladunek_json = json.dumps(st.session_state.core_cart, ensure_ascii=False)
+            
+            row = [order_id, "DRAFT (NOWE)", klient, current_user, start, koniec, str(data_z), str(data_r), trakcja, przewoznik, auto_kierowca, fracht_sprzedaz, fracht_kupno, ladunek_json, uwagi, "", "", 30, "NIE", ""]
+            
+            if save_new_order(row):
+                st.session_state.core_cart = [] 
+                st.success(f"Zlecenie {order_id} zostało pomyślnie utworzone!")
+                st.balloons()
+                st.rerun() # Przeładowanie po sukcesie by wyczyścić formularz
+            else: st.error("Błąd zapisu w Google Sheets.")
+
+
+@st.fragment
+def render_edycja_zlecenia(df, config_data, products_data, current_user):
+    st.markdown("### ✏️ EDYTOR ZLECENIA")
+    aktywne_df = df[df['Status'].isin(['DRAFT (NOWE)', 'ZAAKCEPTOWANE', 'ZAPLANOWANE', 'W TRASIE'])]
+    if aktywne_df.empty:
+        st.success("Brak aktywnych zleceń do edycji.")
+        return
+        
+    lista_zlecen = aktywne_df['ID'].astype(str) + " | " + aktywne_df['Klient'].astype(str)
+    wybrane_zlecenie_str = st.selectbox("WYBIERZ ZLECENIE DO EDYCJI", lista_zlecen.tolist())
+    
+    wybrane_id = wybrane_zlecenie_str.split(" | ")[0]
+    row_data = aktywne_df[aktywne_df['ID'].astype(str) == wybrane_id].iloc[0]
+    
+    if st.session_state.get('current_edit_id') != wybrane_id:
+        st.session_state.current_edit_id = wybrane_id
+        try: st.session_state.edit_cart = json.loads(str(row_data.get('Ladunek', '[]')))
+        except: st.session_state.edit_cart = []
+    
+    c_left, c_right = st.columns([2, 1])
+    
+    with c_left:
+        with st.container(border=True):
+            st.markdown("#### 1. DANE OPERACYJNE")
+            col1, col2 = st.columns(2)
+            klient = col1.text_input("KLIENT / ZLECENIODAWCA", value=str(row_data.get('Klient', '')))
+            tr_idx = 1 if row_data.get('Trakcja', '') == "PODWYKONAWCA (PRZEWOŹNIK)" else 0
+            trakcja = col2.radio("TYP TRAKCJI", ["WŁASNY TABOR", "PODWYKONAWCA (PRZEWOŹNIK)"], index=tr_idx, horizontal=True, key="ed_tr")
+            
+            col_p1, col_p2 = st.columns(2)
+            przewoznik = col_p1.text_input("NAZWA PRZEWOŹNIKA", value=str(row_data.get('Przewoznik', '')))
+            auto_kierowca = col_p2.text_input("POJAZD I KIEROWCA", value=str(row_data.get('Pojazd_Kierowca', '')))
+
+            st.divider()
+            col_f1, col_f2 = st.columns(2)
+            fracht_sprzedaz = col_f1.text_input("FRACHT SPRZEDAŻ", value=str(row_data.get('Fracht_Sprzedaz', '0')))
+            fracht_kupno = col_f2.text_input("FRACHT KUPNO", value=str(row_data.get('Fracht_Kupno', '0')))
+
+            st.divider()
+            st.markdown("#### 2. LOGISTYKA")
+            miasta_start = list(config_data.get("DISTANCES_AND_MYTO", {}).keys()) if config_data else ["Poznań", "Warszawa"]
+            start_val = str(row_data.get('Start', ''))
+            idx_start = miasta_start.index(start_val) if start_val in miasta_start else 0
+            
+            col3, col4 = st.columns(2)
+            start = col3.selectbox("MIEJSCE ZAŁADUNKU", miasta_start, index=idx_start, key="ed_start")
+            miasta_cel = list(config_data.get("DISTANCES_AND_MYTO", {}).get(start, {}).keys()) if config_data else []
+            koniec_val = str(row_data.get('Koniec', ''))
+            idx_koniec = miasta_cel.index(koniec_val) if koniec_val in miasta_cel else 0
+            koniec = col4.selectbox("MIEJSCE ROZŁADUNKU", miasta_cel, index=idx_koniec, key="ed_koniec")
+            
+            col5, col6 = st.columns(2)
+            try: dz_obj = datetime.strptime(str(row_data.get('DataZal', '')), "%Y-%m-%d").date()
+            except: dz_obj = datetime.now().date()
+            try: dr_obj = datetime.strptime(str(row_data.get('DataRozl', '')), "%Y-%m-%d").date()
+            except: dr_obj = datetime.now().date()
+            
+            data_z = col5.date_input("DATA ZAŁADUNKU", value=dz_obj, key="ed_dz")
+            data_r = col6.date_input("DATA ROZŁADUNKU", value=dr_obj, key="ed_dr")
+            uwagi = st.text_area("UWAGI", value=str(row_data.get('Uwagi', '')), key="ed_uwagi")
+
+    with c_right:
+        ladunek_edycja_fragment(products_data)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("💾 NADPISZ I ZAPISZ ZMIANY", use_container_width=True, key="ed_save"):
+        if not klient: st.error("Podaj nazwę klienta!")
+        else:
+            ladunek_json = json.dumps(st.session_state.edit_cart, ensure_ascii=False)
+            spedytor = current_user
+            if update_full_order(wybrane_id, klient, spedytor, start, koniec, data_z, data_r, trakcja, przewoznik, auto_kierowca, fracht_sprzedaz, fracht_kupno, ladunek_json, uwagi):
+                st.success(f"Zlecenie {wybrane_id} zaktualizowane!"); st.balloons()
+            else: st.error("Błąd zapisu danych.")
 
 # ==============================================================================
 # 5. GŁÓWNA LOGIKA MODUŁU CORE
@@ -351,144 +493,19 @@ def run_core():
                             else: st.error("Błąd podczas przypisywania!")
 
     # --------------------------------------------------------------------------
-    # WIDOK 3: KREATOR ZLECENIA (SPEDYCJA)
+    # WIDOK 3: KREATOR ZLECENIA (ZOPTYMALIZOWANY)
     # --------------------------------------------------------------------------
     elif mode == "➕ NOWE ZLECENIE":
-        st.markdown("### 📝 KREATOR ZLECENIA SPEDYCYJNEGO")
-        c_left, c_right = st.columns([2, 1])
-        
-        with c_left:
-            with st.container(border=True):
-                st.markdown("#### 1. DANE OPERACYJNE")
-                col1, col2 = st.columns(2)
-                klient = col1.text_input("KLIENT / ZLECENIODAWCA (Kto płaci nam)")
-                trakcja = col2.radio("TYP TRAKCJI (Domyślnie)", ["WŁASNY TABOR", "PODWYKONAWCA (PRZEWOŹNIK)"], horizontal=True)
-                
-                col_p1, col_p2 = st.columns(2)
-                if trakcja == "PODWYKONAWCA (PRZEWOŹNIK)":
-                    przewoznik = col_p1.text_input("NAZWA PRZEWOŹNIKA", "DO USTALENIA")
-                else:
-                    przewoznik = "VORTEZA FLEET"
-                    
-                auto_kierowca = col_p2.text_input("POJAZD (REJ.) I TEL.", "DO USTALENIA")
-
-                st.divider()
-                st.markdown("#### 2. FINANSE")
-                col_f1, col_f2 = st.columns(2)
-                fracht_sprzedaz = col_f1.text_input("FRACHT SPRZEDAŻ (Dla Klienta)", "0")
-                fracht_kupno = col_f2.text_input("FRACHT KUPNO (Koszty)", "0")
-
-                st.divider()
-                st.markdown("#### 3. LOGISTYKA TRASY")
-                miasta_start = list(config_data.get("DISTANCES_AND_MYTO", {}).keys()) if config_data else ["Poznań", "Warszawa"]
-                
-                col3, col4 = st.columns(2)
-                start = col3.selectbox("MIEJSCE ZAŁADUNKU", miasta_start)
-                miasta_cel = list(config_data.get("DISTANCES_AND_MYTO", {}).get(start, {}).keys()) if config_data else []
-                koniec = col4.selectbox("MIEJSCE ROZŁADUNKU", miasta_cel)
-                
-                col5, col6 = st.columns(2)
-                data_z = col5.date_input("DATA ZAŁADUNKU")
-                data_r = col6.date_input("DATA ROZŁADUNKU")
-                
-                uwagi = st.text_area("UWAGI (Awizacja, warunki załadunku)")
-
-        with c_right:
-            ladunek_nowe_zlecenie_fragment(products_data)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 ZAPISZ I UTWÓRZ ZLECENIE", use_container_width=True):
-            if not klient: st.error("Podaj nazwę klienta!")
-            else:
-                now = datetime.now()
-                order_id = f"TMS-{now.strftime('%y')}-{now.strftime('%H%M%S')}"
-                ladunek_json = json.dumps(st.session_state.core_cart, ensure_ascii=False)
-                
-                row = [order_id, "DRAFT (NOWE)", klient, current_user, start, koniec, str(data_z), str(data_r), trakcja, przewoznik, auto_kierowca, fracht_sprzedaz, fracht_kupno, ladunek_json, uwagi, "", "", 30, "NIE", ""]
-                
-                if save_new_order(row):
-                    st.session_state.core_cart = [] 
-                    st.success(f"Zlecenie {order_id} zostało pomyślnie utworzone!")
-                    st.balloons()
-                else: st.error("Błąd zapisu w Google Sheets.")
+        render_nowe_zlecenie(config_data, products_data, current_user)
 
     # --------------------------------------------------------------------------
-    # WIDOK 4: EDYCJA ZLECENIA
+    # WIDOK 4: EDYCJA ZLECENIA (ZOPTYMALIZOWANA)
     # --------------------------------------------------------------------------
     elif mode == "✏️ EDYCJA ZLECENIA":
-        st.markdown("### ✏️ EDYTOR ZLECENIA")
         if df.empty:
             st.info("Brak zleceń w systemie.")
         else:
-            aktywne_df = df[df['Status'].isin(['DRAFT (NOWE)', 'ZAAKCEPTOWANE', 'ZAPLANOWANE', 'W TRASIE'])]
-            if aktywne_df.empty:
-                st.success("Brak aktywnych zleceń do edycji.")
-            else:
-                lista_zlecen = aktywne_df['ID'].astype(str) + " | " + aktywne_df['Klient'].astype(str)
-                wybrane_zlecenie_str = st.selectbox("WYBIERZ ZLECENIE DO EDYCJI", lista_zlecen.tolist())
-                
-                wybrane_id = wybrane_zlecenie_str.split(" | ")[0]
-                row_data = aktywne_df[aktywne_df['ID'].astype(str) == wybrane_id].iloc[0]
-                
-                if st.session_state.get('current_edit_id') != wybrane_id:
-                    st.session_state.current_edit_id = wybrane_id
-                    try: st.session_state.edit_cart = json.loads(str(row_data.get('Ladunek', '[]')))
-                    except: st.session_state.edit_cart = []
-                
-                c_left, c_right = st.columns([2, 1])
-                
-                with c_left:
-                    with st.container(border=True):
-                        st.markdown("#### 1. DANE OPERACYJNE")
-                        col1, col2 = st.columns(2)
-                        klient = col1.text_input("KLIENT / ZLECENIODAWCA", value=str(row_data.get('Klient', '')))
-                        tr_idx = 1 if row_data.get('Trakcja', '') == "PODWYKONAWCA (PRZEWOŹNIK)" else 0
-                        trakcja = col2.radio("TYP TRAKCJI", ["WŁASNY TABOR", "PODWYKONAWCA (PRZEWOŹNIK)"], index=tr_idx, horizontal=True, key="ed_tr")
-                        
-                        col_p1, col_p2 = st.columns(2)
-                        przewoznik = col_p1.text_input("NAZWA PRZEWOŹNIKA", value=str(row_data.get('Przewoznik', '')))
-                        auto_kierowca = col_p2.text_input("POJAZD I KIEROWCA", value=str(row_data.get('Pojazd_Kierowca', '')))
-
-                        st.divider()
-                        col_f1, col_f2 = st.columns(2)
-                        fracht_sprzedaz = col_f1.text_input("FRACHT SPRZEDAŻ", value=str(row_data.get('Fracht_Sprzedaz', '0')))
-                        fracht_kupno = col_f2.text_input("FRACHT KUPNO", value=str(row_data.get('Fracht_Kupno', '0')))
-
-                        st.divider()
-                        st.markdown("#### 2. LOGISTYKA")
-                        miasta_start = list(config_data.get("DISTANCES_AND_MYTO", {}).keys()) if config_data else ["Poznań", "Warszawa"]
-                        start_val = str(row_data.get('Start', ''))
-                        idx_start = miasta_start.index(start_val) if start_val in miasta_start else 0
-                        
-                        col3, col4 = st.columns(2)
-                        start = col3.selectbox("MIEJSCE ZAŁADUNKU", miasta_start, index=idx_start, key="ed_start")
-                        miasta_cel = list(config_data.get("DISTANCES_AND_MYTO", {}).get(start, {}).keys()) if config_data else []
-                        koniec_val = str(row_data.get('Koniec', ''))
-                        idx_koniec = miasta_cel.index(koniec_val) if koniec_val in miasta_cel else 0
-                        koniec = col4.selectbox("MIEJSCE ROZŁADUNKU", miasta_cel, index=idx_koniec, key="ed_koniec")
-                        
-                        col5, col6 = st.columns(2)
-                        try: dz_obj = datetime.strptime(str(row_data.get('DataZal', '')), "%Y-%m-%d").date()
-                        except: dz_obj = datetime.now().date()
-                        try: dr_obj = datetime.strptime(str(row_data.get('DataRozl', '')), "%Y-%m-%d").date()
-                        except: dr_obj = datetime.now().date()
-                        
-                        data_z = col5.date_input("DATA ZAŁADUNKU", value=dz_obj, key="ed_dz")
-                        data_r = col6.date_input("DATA ROZŁADUNKU", value=dr_obj, key="ed_dr")
-                        uwagi = st.text_area("UWAGI", value=str(row_data.get('Uwagi', '')), key="ed_uwagi")
-
-                with c_right:
-                    ladunek_edycja_fragment(products_data)
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("💾 NADPISZ I ZAPISZ ZMIANY", use_container_width=True, key="ed_save"):
-                    if not klient: st.error("Podaj nazwę klienta!")
-                    else:
-                        ladunek_json = json.dumps(st.session_state.edit_cart, ensure_ascii=False)
-                        spedytor = current_user
-                        if update_full_order(wybrane_id, klient, spedytor, start, koniec, data_z, data_r, trakcja, przewoznik, auto_kierowca, fracht_sprzedaz, fracht_kupno, ladunek_json, uwagi):
-                            st.success(f"Zlecenie {wybrane_id} zaktualizowane!"); st.balloons()
-                        else: st.error("Błąd zapisu danych.")
+            render_edycja_zlecenia(df, config_data, products_data, current_user)
 
     # --------------------------------------------------------------------------
     # WIDOK 5: ROZLICZENIA (BILLING + PDF)
