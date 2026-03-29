@@ -87,6 +87,17 @@ def inject_hub_theme():
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&family=JetBrains+Mono&display=swap');
             {bg_style}
+            
+            /* --- CAŁKOWITE USUNIĘCIE STREAMLIT BRANDINGU I BIAŁEGO PASKA --- */
+            header {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
+            [data-testid="stHeader"] {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
+            footer {{ visibility: hidden !important; display: none !important; }}
+            #MainMenu {{ visibility: hidden !important; display: none !important; }}
+            
+            /* --- USUNIĘCIE PUSTEJ PRZESTRZENI U GÓRY --- */
+            .block-container {{ padding-top: 1rem !important; padding-bottom: 1rem !important; margin-top: 0 !important; }}
+            div[data-testid="stAppViewBlockContainer"] {{ padding-top: 1rem !important; }}
+            
             .stApp {{ color: #FFFFFF; font-family: 'Montserrat', sans-serif; }}
             section[data-testid="stSidebar"] {{ background-color: rgba(3, 3, 3, 0.95) !important; border-right: 1px solid rgba(181, 136, 99, 0.3); width: 350px !important; backdrop-filter: blur(10px); }}
             h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 6px !important; font-weight: 700 !important; }}
