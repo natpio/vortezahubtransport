@@ -98,6 +98,17 @@ def inject_hub_theme():
             .block-container {{ padding-top: 1rem !important; padding-bottom: 1rem !important; margin-top: 0 !important; }}
             div[data-testid="stAppViewBlockContainer"] {{ padding-top: 1rem !important; }}
             
+            /* --- ANTY-LAG: WYŁĄCZENIE MGŁY I SZARZENIA EKRANU PODCZAS ŁADOWANIA --- */
+            *[data-stale="true"], div[data-stale="true"], button[data-stale="true"] {{
+                opacity: 1 !important;
+                filter: none !important;
+                transition: none !important;
+                pointer-events: auto !important;
+            }}
+            [data-testid="stSidebar"] * {{
+                transition: none !important;
+            }}
+
             .stApp {{ color: #FFFFFF; font-family: 'Montserrat', sans-serif; }}
             section[data-testid="stSidebar"] {{ background-color: rgba(3, 3, 3, 0.95) !important; border-right: 1px solid rgba(181, 136, 99, 0.3); width: 350px !important; backdrop-filter: blur(10px); }}
             h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 6px !important; font-weight: 700 !important; }}
@@ -111,7 +122,7 @@ def inject_hub_theme():
 
 def navigate_to(page_name): st.session_state.active_module = page_name
 
-# --- NOWOŚĆ: NASŁUCHIWACZ POWIADOMIEŃ (Działa w tle co 10 sek) ---
+# --- NASŁUCHIWACZ POWIADOMIEŃ ---
 @st.fragment(run_every="10s")
 def live_notification_listener():
     path = os.path.join("data", "live_notif.json")
@@ -129,7 +140,6 @@ def live_notification_listener():
                 
                 for i in range(new_notifs_count):
                     n = notifs[st.session_state.last_notif_count + i]
-                    # To spowoduje wysunięcie powiadomienia w rogu ekranu!
                     st.toast(f"**ALARM FLOTY ({n['time']})**\n\n{n['msg']}", icon="🔔")
                 
                 st.session_state.last_notif_count = current_count
@@ -226,7 +236,6 @@ def main_hub():
                 st.session_state.role = "BRAK"
                 st.rerun()
 
-    # --- URUCHOMIENIE NASŁUCHIWACZA DLA SPEDYTORÓW ---
     if st.session_state.global_auth and st.session_state.role != "KIEROWCA":
         live_notification_listener()
 
