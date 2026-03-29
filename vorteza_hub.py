@@ -78,7 +78,7 @@ def authenticate_user(username, password):
         st.error(f"Błąd autoryzacji bazy: {e}")
         return None
 
-# --- 4. SILNIK WIZUALNY ---
+# --- 4. SILNIK WIZUALNY (FULL FIX) ---
 def inject_hub_theme():
     bg_b64 = get_base64_of_bin_file(os.path.join("assets", "tlo_hub_2.jpg"))
     bg_style = f".stApp {{ background: linear-gradient(rgba(6, 6, 6, 0.85), rgba(6, 6, 6, 0.85)), url('data:image/jpeg;base64,{bg_b64}') !important; background-size: cover !important; background-attachment: fixed !important; }}" if bg_b64 else ".stApp { background-color: #060606; }"
@@ -88,32 +88,39 @@ def inject_hub_theme():
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&family=JetBrains+Mono&display=swap');
             {bg_style}
             
-            /* --- CAŁKOWITE USUNIĘCIE STREAMLIT BRANDINGU I BIAŁEGO PASKA --- */
+            /* USUNIĘCIE BRANDINGU I BIAŁEGO PASKA */
             header {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
             [data-testid="stHeader"] {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
             footer {{ visibility: hidden !important; display: none !important; }}
             #MainMenu {{ visibility: hidden !important; display: none !important; }}
-            
-            /* --- USUNIĘCIE PUSTEJ PRZESTRZENI U GÓRY --- */
             .block-container {{ padding-top: 1rem !important; padding-bottom: 1rem !important; margin-top: 0 !important; }}
             div[data-testid="stAppViewBlockContainer"] {{ padding-top: 1rem !important; }}
-            
-            /* --- ANTY-LAG: WYŁĄCZENIE MGŁY I SZARZENIA EKRANU PODCZAS ŁADOWANIA --- */
+
+            /* ANTY-LAG: BLOKADA SZARZENIA */
             *[data-stale="true"], div[data-stale="true"], button[data-stale="true"] {{
                 opacity: 1 !important;
                 filter: none !important;
                 transition: none !important;
-                pointer-events: auto !important;
             }}
-            [data-testid="stSidebar"] * {{
-                transition: none !important;
+
+            /* KOLOR CZCIONKI: MIEDZIANY DLA ETYKIET I SIDEBARA */
+            label, [data-testid="stWidgetLabel"] p, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {{ 
+                color: #B58863 !important; 
+                font-weight: 700 !important; 
+                text-transform: uppercase;
+                letter-spacing: 1px;
             }}
+            
+            /* Tekst w Radio Buttonach */
+            div[data-testid="stRadio"] label p {{ color: #B58863 !important; }}
 
             .stApp {{ color: #FFFFFF; font-family: 'Montserrat', sans-serif; }}
             section[data-testid="stSidebar"] {{ background-color: rgba(3, 3, 3, 0.95) !important; border-right: 1px solid rgba(181, 136, 99, 0.3); width: 350px !important; backdrop-filter: blur(10px); }}
             h1, h2, h3, h4 {{ color: #B58863 !important; text-transform: uppercase; letter-spacing: 6px !important; font-weight: 700 !important; }}
+            
             .stButton>button {{ background-color: rgba(10,10,10,0.8) !important; color: #B58863 !important; border: 1px solid #B58863 !important; width: 100%; transition: 0.4s; }}
             .stButton>button:hover {{ background-color: #B58863 !important; color: black !important; }}
+            
             .module-card {{ background: rgba(10, 10, 10, 0.75); border: 1px solid rgba(181, 136, 99, 0.4); border-top: 3px solid #B58863; padding: 20px; border-radius: 8px; text-align: center; backdrop-filter: blur(5px); margin-bottom: 15px; }}
             [data-testid="stMetricLabel"] p {{ color: #B58863 !important; font-weight: 700 !important; letter-spacing: 1px !important; }}
             [data-testid="stMetricValue"] div {{ color: #FFFFFF !important; font-family: 'JetBrains Mono', monospace !important; }}
@@ -130,21 +137,16 @@ def live_notification_listener():
         try:
             with open(path, "r", encoding="utf-8") as f:
                 notifs = json.load(f)
-            
             if "last_notif_count" not in st.session_state:
                 st.session_state.last_notif_count = len(notifs)
-            
             current_count = len(notifs)
             if current_count > st.session_state.last_notif_count:
                 new_notifs_count = current_count - st.session_state.last_notif_count
-                
                 for i in range(new_notifs_count):
                     n = notifs[st.session_state.last_notif_count + i]
                     st.toast(f"**ALARM FLOTY ({n['time']})**\n\n{n['msg']}", icon="🔔")
-                
                 st.session_state.last_notif_count = current_count
         except: pass
-
 
 # --- 5. GŁÓWNA LOGIKA HUB-A ---
 def main_hub():
@@ -170,7 +172,7 @@ def main_hub():
                 if st.form_submit_button("ZALOGUJ DO SYSTEMU"):
                     if user_input and pwd_input:
                         role = authenticate_user(user_input, pwd_input)
-                        if role == "BLOCKED": st.error("KONTO ZABLOKOWANE. Skontaktuj się z administratorem.")
+                        if role == "BLOCKED": st.error("KONTO ZABLOKOWANE.")
                         elif role:
                             st.session_state.global_auth = True
                             st.session_state.username = user_input.upper()
@@ -179,106 +181,62 @@ def main_hub():
                             elif role == "ADMINISTRATOR / SZEF": st.session_state.active_module = "RAPORTY (ADMIN)"
                             else: st.session_state.active_module = "PULPIT (DASHBOARD)"
                             st.rerun()
-                        else: st.error("ACCESS DENIED: Nieprawidłowy login lub hasło!")
-                    else: st.warning("Wpisz login i hasło.")
+                        else: st.error("Nieprawidłowy login lub hasło!")
         return
 
+    # Ukrywanie paska bocznego na Dashboardzie
     if st.session_state.active_module == "PULPIT (DASHBOARD)":
         st.markdown("""<style>[data-testid="collapsedControl"] { display: none !important; } section[data-testid="stSidebar"] { display: none !important; }</style>""", unsafe_allow_html=True)
     else:
         with st.sidebar:
             logo_path = os.path.join("assets", "logo_vorteza.png")
             if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
-            else: st.markdown("<h2 style='letter-spacing:10px; text-align:center;'>VORTEZA</h2>", unsafe_allow_html=True)
-                
+            else: st.markdown("<h2 style='text-align:center;'>VORTEZA</h2>", unsafe_allow_html=True)
             st.markdown("<div style='text-align:center;'><span style='color: #00FF41; font-family: JetBrains Mono; font-size: 0.8rem;'>● SYSTEM STATUS: ONLINE</span></div>", unsafe_allow_html=True)
             st.divider()
             
             if st.session_state.role == "KIEROWCA":
-                st.markdown("### PANEL KIEROWCY")
-                st.button("TERMINAL MOBILNY (BASE)", key="sb_nav_base_driver", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
+                st.button("TERMINAL MOBILNY (BASE)", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
             else:
-                c1, c2 = st.columns([1, 4])
-                with c1:
-                    if os.path.exists(os.path.join("assets", "home.jpg")): st.image(os.path.join("assets", "home.jpg"))
-                with c2: st.button("PULPIT (DASHBOARD)", key="sb_nav_dash", on_click=navigate_to, args=("PULPIT (DASHBOARD)",), use_container_width=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                c1, c2 = st.columns([1, 4])
-                with c1: st.markdown("""<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; filter: drop-shadow(0px 0px 3px #B58863);"><path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/><path d="M3 12L12 17L21 12" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/><path d="M3 17L12 22L21 17" stroke="#B58863" stroke-width="2" stroke-linejoin="round"/></svg>""", unsafe_allow_html=True)
-                with c2: st.button("ZLECENIA I SPEDYCJA", key="sb_nav_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
-                
-                c1, c2 = st.columns([1, 4])
-                with c1:
-                    if os.path.exists(os.path.join("assets", "icon_stack.png")): st.image(os.path.join("assets", "icon_stack.png"))
-                with c2: st.button("PLANER 3D (STACK)", key="sb_nav_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
-                
-                c1, c2 = st.columns([1, 4])
-                with c1:
-                    if os.path.exists(os.path.join("assets", "icon_flow.png")): st.image(os.path.join("assets", "icon_flow.png"))
-                with c2: st.button("FINANSE (FLOW)", key="sb_nav_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
-                
-                c1, c2 = st.columns([1, 4])
-                with c1:
-                    if os.path.exists(os.path.join("assets", "icon_base.png")): st.image(os.path.join("assets", "icon_base.png"))
-                with c2: st.button("FLOTA (BASE)", key="sb_nav_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
-
+                st.button("PULPIT (DASHBOARD)", on_click=navigate_to, args=("PULPIT (DASHBOARD)",), use_container_width=True)
+                st.button("ZLECENIA I SPEDYCJA", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
+                st.button("PLANER 3D (STACK)", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
+                st.button("FINANSE (FLOW)", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
+                st.button("FLOTA (BASE)", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
                 if st.session_state.role == "ADMINISTRATOR / SZEF":
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.button("📊 RAPORTY I KADRY", key="sb_nav_admin", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
+                    st.button("📊 RAPORTY I KADRY", on_click=navigate_to, args=("RAPORTY (ADMIN)",), use_container_width=True)
 
             st.divider()
             st.markdown(f"**UŻYTKOWNIK:** {st.session_state.username}")
-            st.markdown(f"**ROLA:** {st.session_state.role}")
-            if st.button("WYLOGUJ Z SYSTEMU", key="sb_logout"):
+            if st.button("WYLOGUJ"):
                 st.session_state.global_auth = False
-                st.session_state.username = "UNAUTHORIZED"
-                st.session_state.role = "BRAK"
                 st.rerun()
 
     if st.session_state.global_auth and st.session_state.role != "KIEROWCA":
         live_notification_listener()
 
-    # --- RENDEROWANIE MODUŁÓW ---
-    if st.session_state.active_module == "PULPIT (DASHBOARD)" and st.session_state.role != "KIEROWCA":
+    # Renderowanie modułów
+    if st.session_state.active_module == "PULPIT (DASHBOARD)":
         st.markdown("<h1>DASHBOARD SPEDYTORA</h1>", unsafe_allow_html=True)
         banner_path = os.path.join("assets", "baner 1.jpg")
-        if os.path.exists(banner_path):
-            _, b_col, _ = st.columns([1, 2, 1])
-            with b_col: st.image(banner_path, use_container_width=True)
-                
-        st.markdown("---")
+        if os.path.exists(banner_path): st.image(banner_path, use_container_width=True)
         s = get_dashboard_stats()
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2 = st.columns(2)
         c1.metric("KURS EURO (V)", f"{s['euro']} PLN")
         c2.metric("BAZA JEDNOSTEK", s["skus"])
         
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        m0, m1, m2, m3 = st.columns(4)
-        with m0:
-            st.markdown("""<div class='module-card'><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 45%; max-width: 150px; display: block; margin: 0 auto; filter: drop-shadow(0px 0px 10px rgba(181,136,99,0.5));"><path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 12L12 17L21 12" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 17L12 22L21 17" stroke="#B58863" stroke-width="1.5" stroke-linejoin="round"/></svg><h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>ZLECENIA</h4></div>""", unsafe_allow_html=True)
-            st.button("URUCHOM CORE", key="btn_go_core", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
-        with m1:
-            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_stack.png"))
-            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
-            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>PLANER 3D</h4></div>", unsafe_allow_html=True)
-            st.button("URUCHOM STACK", key="btn_go_stack", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
-        with m2:
-            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_flow.png"))
-            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
-            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>FINANSE</h4></div>", unsafe_allow_html=True)
-            st.button("URUCHOM FLOW", key="btn_go_flow", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
-        with m3:
-            icon_b64 = get_base64_of_bin_file(os.path.join("assets", "icon_base.png"))
-            img_html = f"<img src='data:image/png;base64,{icon_b64}' style='width: 45%; max-width: 150px; display: block; margin: 0 auto;'/>" if icon_b64 else ""
-            st.markdown(f"<div class='module-card'>{img_html}<h4 style='text-align:center; font-size: 1.1rem; margin-top: 15px;'>FLOTA</h4></div>", unsafe_allow_html=True)
-            st.button("URUCHOM BASE", key="btn_go_base", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
+        # Przyciski szybkiego startu na dashboardzie
+        m1, m2, m3, m4 = st.columns(4)
+        with m1: st.button("URUCHOM CORE", on_click=navigate_to, args=("ZLECENIA (CORE)",), use_container_width=True)
+        with m2: st.button("URUCHOM STACK", on_click=navigate_to, args=("PLANER 3D (STACK)",), use_container_width=True)
+        with m3: st.button("URUCHOM FLOW", on_click=navigate_to, args=("FINANSE (FLOW)",), use_container_width=True)
+        with m4: st.button("URUCHOM BASE", on_click=navigate_to, args=("FLOTA (BASE)",), use_container_width=True)
 
-    elif st.session_state.active_module == "ZLECENIA (CORE)" and st.session_state.role != "KIEROWCA": run_core()
-    elif st.session_state.active_module == "PLANER 3D (STACK)" and st.session_state.role != "KIEROWCA": run_stack()
-    elif st.session_state.active_module == "FINANSE (FLOW)" and st.session_state.role != "KIEROWCA": run_flow()
+    elif st.session_state.active_module == "ZLECENIA (CORE)": run_core()
+    elif st.session_state.active_module == "PLANER 3D (STACK)": run_stack()
+    elif st.session_state.active_module == "FINANSE (FLOW)": run_flow()
     elif st.session_state.active_module == "FLOTA (BASE)": run_base()
-    elif st.session_state.active_module == "RAPORTY (ADMIN)" and st.session_state.role == "ADMINISTRATOR / SZEF": run_admin()
+    elif st.session_state.active_module == "RAPORTY (ADMIN)": run_admin()
 
 if __name__ == "__main__":
     main_hub()
