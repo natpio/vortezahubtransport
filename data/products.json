@@ -1,9 +1,0 @@
-[
-  {"id": 1, "name": "Paleta EUR (120x80)", "width": 80, "length": 120, "height": 150, "weight": 500, "canStack": false, "itemsPerCase": 1},
-  {"id": 2, "name": "Paleta EUR - PIĘTROWALNA", "width": 80, "length": 120, "height": 100, "weight": 300, "canStack": true, "itemsPerCase": 1},
-  {"id": 3, "name": "Paleta PRZEM/FIN (120x100)", "width": 100, "length": 120, "height": 150, "weight": 600, "canStack": false, "itemsPerCase": 1},
-  {"id": 4, "name": "Pojemnik IBC / Mauzer", "width": 100, "length": 120, "height": 116, "weight": 1000, "canStack": false, "itemsPerCase": 1},
-  {"id": 5, "name": "Gitterbox (120x80)", "width": 80, "length": 120, "height": 97, "weight": 800, "canStack": true, "itemsPerCase": 1},
-  {"id": 6, "name": "Półpaleta (80x60)", "width": 60, "length": 80, "height": 100, "weight": 250, "canStack": true, "itemsPerCase": 1},
-  {"id": 7, "name": "Ładunek luzem / Kartony", "width": 120, "length": 80, "height": 50, "weight": 100, "canStack": true, "itemsPerCase": 1}
-]
